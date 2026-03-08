@@ -5,6 +5,7 @@ import '../services/health_api_service.dart';
 import '../ui/app_theme.dart';
 import '../utils/error_display.dart';
 import 'debug_page.dart';
+import 'edit_display_name_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({
@@ -79,37 +80,21 @@ class _ProfilePageState extends State<ProfilePage> {
     final profile = _profile;
     if (profile == null) return;
 
-    final controller = TextEditingController(text: profile.displayName);
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => _buildDialogShell(
-        title: '编辑昵称',
-        subtitle: '用于任务、通知与协作展示',
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(labelText: '昵称'),
+    final nextName = await Navigator.push<String>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => EditDisplayNamePage(
+          initialName: profile.displayName,
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('保存'),
-          ),
-        ],
       ),
     );
 
-    if (confirmed != true) return;
+    if (nextName == null || nextName.trim().isEmpty) return;
 
     try {
       final next = await _accountApi.updateProfile(
         owner: widget.owner,
-        displayName: controller.text.trim().isEmpty
-            ? profile.displayName
-            : controller.text.trim(),
+        displayName: nextName.trim(),
         bio: profile.bio,
         avatar: profile.avatar,
         relationshipLabel: profile.relationshipLabel,
@@ -127,34 +112,6 @@ class _ProfilePageState extends State<ProfilePage> {
         );
       }
     }
-  }
-
-  Widget _buildDialogShell({
-    required String title,
-    required String subtitle,
-    required Widget content,
-    required List<Widget> actions,
-  }) {
-    return AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      backgroundColor: const Color(0xFFFFFCF8),
-      titlePadding: const EdgeInsets.fromLTRB(18, 16, 18, 0),
-      contentPadding: const EdgeInsets.fromLTRB(18, 12, 18, 8),
-      actionsPadding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
-      title: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
-          const SizedBox(height: 4),
-          Text(
-            subtitle,
-            style: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
-          ),
-        ],
-      ),
-      content: content,
-      actions: actions,
-    );
   }
 
   Future<void> _changeDuoMode(bool enabled) async {

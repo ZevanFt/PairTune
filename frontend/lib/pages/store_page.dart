@@ -6,6 +6,7 @@ import '../services/store_api_service.dart';
 import '../ui/app_theme.dart';
 import '../utils/error_display.dart';
 import '../widgets/shimmer_block.dart';
+import 'product_form_page.dart';
 
 class StorePage extends StatefulWidget {
   const StorePage({
@@ -109,53 +110,6 @@ class _StorePageState extends State<StorePage> {
     return Icon(Icons.circle, size: 11, color: color);
   }
 
-  Future<bool?> _showProductFormDialog({
-    required String title,
-    required String submitText,
-    required TextEditingController nameController,
-    required TextEditingController descController,
-    required TextEditingController pointsController,
-    required TextEditingController stockController,
-  }) {
-    return showDialog<bool>(
-      context: context,
-      builder: (context) => _buildDialogShell(
-        title: title,
-        subtitle: '请完整填写商品信息',
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _dialogField(nameController, '商品名称'),
-            const SizedBox(height: 10),
-            _dialogField(descController, '描述'),
-            const SizedBox(height: 10),
-            _dialogField(
-              pointsController,
-              '所需积分',
-              keyboardType: TextInputType.number,
-            ),
-            const SizedBox(height: 10),
-            _dialogField(
-              stockController,
-              '库存',
-              keyboardType: TextInputType.number,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(submitText),
-          ),
-        ],
-      ),
-    );
-  }
-
   Future<bool?> _showConfirmDialog({
     required String title,
     required String message,
@@ -216,18 +170,6 @@ class _StorePageState extends State<StorePage> {
     );
   }
 
-  Widget _dialogField(
-    TextEditingController controller,
-    String label, {
-    TextInputType? keyboardType,
-  }) {
-    return TextField(
-      controller: controller,
-      keyboardType: keyboardType,
-      decoration: InputDecoration(labelText: label),
-    );
-  }
-
   Future<void> _exchange(ProductItem item) async {
     try {
       await _store.exchange(buyer: widget.owner, productId: item.id);
@@ -246,32 +188,20 @@ class _StorePageState extends State<StorePage> {
     }
   }
 
-  Future<void> _showCreateProductDialog() async {
-    final nameController = TextEditingController();
-    final descController = TextEditingController();
-    final pointsController = TextEditingController();
-    final stockController = TextEditingController();
-
-    final confirmed = await _showProductFormDialog(
-      title: '发布商品',
-      submitText: '发布',
-      nameController: nameController,
-      descController: descController,
-      pointsController: pointsController,
-      stockController: stockController,
+  Future<void> _showCreateProductPage() async {
+    final draft = await Navigator.push<ProductDraft>(
+      context,
+      MaterialPageRoute(builder: (_) => const ProductFormPage()),
     );
-
-    if (confirmed != true) return;
+    if (draft == null) return;
 
     try {
       await _store.createProduct(
         publisher: widget.owner,
-        name: nameController.text.trim(),
-        description: descController.text.trim().isEmpty
-            ? null
-            : descController.text.trim(),
-        pointsCost: int.tryParse(pointsController.text.trim()) ?? 0,
-        stock: int.tryParse(stockController.text.trim()) ?? 0,
+        name: draft.name,
+        description: draft.description,
+        pointsCost: draft.pointsCost,
+        stock: draft.stock,
       );
       if (mounted) {
         ScaffoldMessenger.of(
@@ -288,33 +218,21 @@ class _StorePageState extends State<StorePage> {
     }
   }
 
-  Future<void> _showEditProductDialog(ProductItem item) async {
-    final nameController = TextEditingController(text: item.name);
-    final descController = TextEditingController(text: item.description ?? '');
-    final pointsController = TextEditingController(text: '${item.pointsCost}');
-    final stockController = TextEditingController(text: '${item.stock}');
-
-    final confirmed = await _showProductFormDialog(
-      title: '编辑商品',
-      submitText: '保存',
-      nameController: nameController,
-      descController: descController,
-      pointsController: pointsController,
-      stockController: stockController,
+  Future<void> _showEditProductPage(ProductItem item) async {
+    final draft = await Navigator.push<ProductDraft>(
+      context,
+      MaterialPageRoute(builder: (_) => ProductFormPage(initial: item)),
     );
-
-    if (confirmed != true) return;
+    if (draft == null) return;
 
     try {
       await _store.updateProduct(
         id: item.id,
         owner: widget.owner,
-        name: nameController.text.trim(),
-        description: descController.text.trim().isEmpty
-            ? null
-            : descController.text.trim(),
-        pointsCost: int.tryParse(pointsController.text.trim()) ?? 0,
-        stock: int.tryParse(stockController.text.trim()) ?? 0,
+        name: draft.name,
+        description: draft.description,
+        pointsCost: draft.pointsCost,
+        stock: draft.stock,
       );
       if (mounted) {
         ScaffoldMessenger.of(
@@ -406,7 +324,7 @@ class _StorePageState extends State<StorePage> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showCreateProductDialog,
+        onPressed: _showCreateProductPage,
         label: const Text('发布商品'),
         icon: const Icon(Icons.add_business_outlined),
       ),
@@ -722,7 +640,7 @@ class _StorePageState extends State<StorePage> {
           ),
           IconButton(
             tooltip: '编辑',
-            onPressed: () => _showEditProductDialog(item),
+            onPressed: () => _showEditProductPage(item),
             icon: const Icon(Icons.edit_outlined),
           ),
           IconButton(
