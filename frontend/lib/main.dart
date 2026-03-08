@@ -96,7 +96,7 @@ class _ModeSelectPage extends StatelessWidget {
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [Color(0xFFFFFBF4), Color(0xFFF4F8FF)],
+            colors: [AppTheme.pageBgTop, AppTheme.pageBgBottom],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -111,7 +111,7 @@ class _ModeSelectPage extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFEAF0FF),
+                    color: AppTheme.softBlue,
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: const Text(
@@ -169,9 +169,9 @@ class _ModeSelectPage extends StatelessWidget {
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.9),
+        color: AppTheme.panel.withValues(alpha: 0.94),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFE6DDD1)),
+        border: Border.all(color: AppTheme.panelBorder),
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(18),
@@ -236,21 +236,17 @@ class _BrandBottomBar extends StatelessWidget {
     return SafeArea(
       top: false,
       child: Container(
-        margin: const EdgeInsets.fromLTRB(14, 0, 14, 12),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFFFFFFFF), Color(0xFFFFF8F0)],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: const Color(0xFFE7DED2)),
+          color: AppTheme.panel.withValues(alpha: 0.95),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: AppTheme.panelBorder),
           boxShadow: const [
             BoxShadow(
-              color: Color(0x24000000),
-              blurRadius: 18,
-              offset: Offset(0, 8),
+              color: Color(0x1A1D2A44),
+              blurRadius: 14,
+              offset: Offset(0, 6),
             ),
           ],
         ),
@@ -258,42 +254,53 @@ class _BrandBottomBar extends StatelessWidget {
           children: List.generate(items.length, (i) {
             final selected = i == index;
             return Expanded(
-              child: InkWell(
-                borderRadius: BorderRadius.circular(14),
-                onTap: () => onChanged(i),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 220),
-                  padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(14),
+                  onTap: () => onChanged(i),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 220),
+                    curve: Curves.easeOutCubic,
+                    padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 4),
                   decoration: BoxDecoration(
-                    color: selected ? const Color(0xFFE8EEFF) : Colors.transparent,
+                    color: selected ? AppTheme.softBlue : Colors.transparent,
                     borderRadius: BorderRadius.circular(14),
-                    border: selected
-                        ? Border.all(color: const Color(0xFFCBD6F1))
-                        : null,
                   ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        items[i].$1,
-                        color: selected
-                            ? const Color(0xFF1A2B4F)
-                            : const Color(0xFF7C8496),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        items[i].$2,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: selected
-                              ? FontWeight.w800
-                              : FontWeight.w500,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        AnimatedContainer(
+                          duration: const Duration(milliseconds: 220),
+                          margin: const EdgeInsets.only(bottom: 5),
+                          height: 2.5,
+                          width: selected ? 22 : 0,
+                          decoration: BoxDecoration(
+                            color: AppTheme.primary,
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                        ),
+                        Icon(
+                          items[i].$1,
+                          size: selected ? 22 : 21,
                           color: selected
                               ? const Color(0xFF1A2B4F)
-                              : const Color(0xFF7C8496),
+                              : const Color(0xFF8A93A5),
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 3),
+                        Text(
+                          items[i].$2,
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            letterSpacing: 0.15,
+                            fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                            color: selected
+                                ? const Color(0xFF1A2B4F)
+                                : const Color(0xFF8A93A5),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),

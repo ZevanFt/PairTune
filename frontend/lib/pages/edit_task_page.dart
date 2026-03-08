@@ -234,7 +234,7 @@ class _EditTaskPageState extends State<EditTaskPage> {
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [Color(0xFFFFFBF4), Color(0xFFFFF6F0), Color(0xFFF1F7FF)],
+            colors: [AppTheme.pageBgTop, AppTheme.pageBgMid, AppTheme.pageBgBottom],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -483,7 +483,7 @@ class _EditTaskPageState extends State<EditTaskPage> {
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.92),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE8E0D4)),
+        border: Border.all(color: AppTheme.panelBorder),
       ),
       child: child,
     );

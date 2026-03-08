@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../services/account_api_service.dart';
+import '../services/health_api_service.dart';
 import '../ui/app_theme.dart';
 import '../utils/error_display.dart';
 import 'debug_page.dart';
@@ -23,8 +24,10 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   final _accountApi = AccountApiService();
+  final _healthApi = HealthApiService();
   bool _loading = true;
   String? _error;
+  BackendHealthStatus? _healthStatus;
   UserProfile? _profile;
   AppSettings? _settings;
 
@@ -62,8 +65,10 @@ class _ProfilePageState extends State<ProfilePage> {
         _error = formatErrorMessage(e);
       });
     } finally {
+      final health = await _healthApi.checkHealth();
       if (mounted) {
         setState(() {
+          _healthStatus = health;
           _loading = false;
         });
       }
@@ -191,11 +196,11 @@ class _ProfilePageState extends State<ProfilePage> {
     final ownerName = widget.owner == 'me' ? '我' : '搭档';
 
     return Scaffold(
-      appBar: AppBar(title: Text('我的 · $ownerName')),
+      appBar: AppBar(title: _buildTitleWithHealth('我的 · $ownerName')),
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [Color(0xFFFFFBF4), Color(0xFFFFF6F0), Color(0xFFF1F7FF)],
+            colors: [AppTheme.pageBgTop, AppTheme.pageBgMid, AppTheme.pageBgBottom],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -264,6 +269,26 @@ class _ProfilePageState extends State<ProfilePage> {
         ),
       ),
     );
+  }
+
+  Widget _buildTitleWithHealth(String title) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _buildHealthDot(),
+        const SizedBox(width: 8),
+        Text(title),
+      ],
+    );
+  }
+
+  Widget _buildHealthDot() {
+    final status = _healthStatus;
+    final online = status?.online == true;
+    final color = status == null
+        ? Colors.grey
+        : (online ? AppTheme.success : AppTheme.danger);
+    return Icon(Icons.circle, size: 11, color: color);
   }
 
   Widget _buildHeaderCard(UserProfile? profile) {
@@ -374,7 +399,7 @@ class _ProfilePageState extends State<ProfilePage> {
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.92),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE8E0D4)),
+        border: Border.all(color: AppTheme.panelBorder),
       ),
       child: SwitchListTile(
         value: value,
@@ -396,7 +421,7 @@ class _ProfilePageState extends State<ProfilePage> {
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.92),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE8E0D4)),
+        border: Border.all(color: AppTheme.panelBorder),
       ),
       child: ListTile(
         leading: Container(
@@ -420,8 +445,8 @@ class _ProfilePageState extends State<ProfilePage> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF2F2),
-        border: Border.all(color: const Color(0xFFF0C5C5)),
+        color: AppTheme.errorBg,
+        border: Border.all(color: AppTheme.errorBorder),
         borderRadius: BorderRadius.circular(14),
       ),
       child: Row(

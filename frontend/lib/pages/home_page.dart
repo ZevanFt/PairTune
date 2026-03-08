@@ -241,12 +241,8 @@ class _HomePageState extends State<HomePage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.duoEnabled ? '要事第一' : '单人任务'),
+        title: _buildTitleWithHealth(widget.duoEnabled ? '要事第一' : '单人任务'),
         actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: _buildHealthBadge(),
-          ),
           if (widget.duoEnabled)
             Padding(
               padding: const EdgeInsets.only(right: 12),
@@ -272,7 +268,7 @@ class _HomePageState extends State<HomePage> {
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [Color(0xFFFFFBF4), Color(0xFFFFF5EE), Color(0xFFF1F7FF)],
+            colors: [AppTheme.pageBgTop, AppTheme.pageBgMid, AppTheme.pageBgBottom],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -320,40 +316,28 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildHealthBadge() {
+  Widget _buildTitleWithHealth(String title) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _buildHealthDot(),
+        const SizedBox(width: 8),
+        Text(title),
+      ],
+    );
+  }
+
+  Widget _buildHealthDot() {
     final status = _healthStatus;
     final online = status?.online == true;
     final color = status == null
         ? Colors.grey
         : (online ? AppTheme.success : AppTheme.danger);
-    final text = status == null
-        ? '检测中'
-        : (online
-              ? '后端正常'
-              : '${status.statusCode == 0 ? '离线' : status.statusCode} ${status.statusText}');
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: const Color(0xFFE7E0D6)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-          ),
-          const SizedBox(width: 6),
-          Text(
-            text,
-            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
-          ),
-        ],
-      ),
+    return Icon(
+      Icons.circle,
+      size: 11,
+      color: color,
     );
   }
 
@@ -362,9 +346,9 @@ class _HomePageState extends State<HomePage> {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF6EA),
+        color: AppTheme.warnBg,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFF3D4AE)),
+        border: Border.all(color: AppTheme.warnBorder),
       ),
       child: Row(
         children: [
@@ -583,7 +567,7 @@ class _HomePageState extends State<HomePage> {
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.82),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE8DFD2)),
+        border: Border.all(color: AppTheme.panelBorder),
       ),
       child: Wrap(
         spacing: 8,
@@ -727,7 +711,7 @@ class _HomePageState extends State<HomePage> {
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE8E0D4)),
+        border: Border.all(color: AppTheme.panelBorder),
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
@@ -768,7 +752,7 @@ class _HomePageState extends State<HomePage> {
                       children: [
                         _taskMetaChip(task.quadrant.label, const Color(0xFFE8EEFF)),
                         _taskMetaChip(dueText, const Color(0xFFFFF0DE)),
-                        _taskMetaChip('积分 ${task.points}', const Color(0xFFEAF8EF)),
+                        _taskMetaChip('积分 ${task.points}', AppTheme.softGreen),
                         _taskMetaChip(repeatText, const Color(0xFFF0EEFF)),
                       ],
                     ),

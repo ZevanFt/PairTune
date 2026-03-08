@@ -88,41 +88,25 @@ class _StorePageState extends State<StorePage> {
     }
   }
 
-  Widget _buildHealthBadge() {
+  Widget _buildTitleWithHealth(String title) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _buildHealthDot(),
+        const SizedBox(width: 8),
+        Text(title),
+      ],
+    );
+  }
+
+  Widget _buildHealthDot() {
     final status = _healthStatus;
     final online = status?.online == true;
     final color = status == null
         ? Colors.grey
         : (online ? AppTheme.success : AppTheme.danger);
-    final text = status == null
-        ? '检测中'
-        : (online
-              ? '后端正常'
-              : '${status.statusCode == 0 ? '离线' : status.statusCode} ${status.statusText}');
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: const Color(0xFFE7E0D6)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-          ),
-          const SizedBox(width: 6),
-          Text(
-            text,
-            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
-          ),
-        ],
-      ),
-    );
+    return Icon(Icons.circle, size: 11, color: color);
   }
 
   Future<bool?> _showProductFormDialog({
@@ -397,12 +381,8 @@ class _StorePageState extends State<StorePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('积分商城'),
+        title: _buildTitleWithHealth('积分商城'),
         actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: _buildHealthBadge(),
-          ),
           IconButton(
             tooltip: '导出快照',
             onPressed: _exportSnapshot,
@@ -433,7 +413,7 @@ class _StorePageState extends State<StorePage> {
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [Color(0xFFFFFBF4), Color(0xFFFFF7F1), Color(0xFFF0F7FF)],
+            colors: [AppTheme.pageBgTop, AppTheme.pageBgMid, AppTheme.pageBgBottom],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -614,8 +594,8 @@ class _StorePageState extends State<StorePage> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF2F2),
-        border: Border.all(color: const Color(0xFFF0C5C5)),
+        color: AppTheme.errorBg,
+        border: Border.all(color: AppTheme.errorBorder),
         borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
@@ -644,7 +624,7 @@ class _StorePageState extends State<StorePage> {
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.86),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE6DDD1)),
+        border: Border.all(color: AppTheme.panelBorder),
       ),
       child: Text(
         text,
@@ -664,7 +644,7 @@ class _StorePageState extends State<StorePage> {
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.92),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE7DFD2)),
+        border: Border.all(color: AppTheme.panelBorder),
       ),
       child: Row(
         children: [
@@ -681,8 +661,8 @@ class _StorePageState extends State<StorePage> {
                   spacing: 6,
                   runSpacing: 6,
                   children: [
-                    _metaChip('库存 ${item.stock}', const Color(0xFFEAF2FF)),
-                    _metaChip('${item.pointsCost} 积分', const Color(0xFFFFF3E2)),
+                    _metaChip('库存 ${item.stock}', AppTheme.softBlue),
+                    _metaChip('${item.pointsCost} 积分', AppTheme.softAmber),
                   ],
                 ),
                 if (item.description != null && item.description!.trim().isNotEmpty) ...[
@@ -716,7 +696,7 @@ class _StorePageState extends State<StorePage> {
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.92),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE7DFD2)),
+        border: Border.all(color: AppTheme.panelBorder),
       ),
       child: Row(
         children: [
@@ -733,8 +713,8 @@ class _StorePageState extends State<StorePage> {
                   spacing: 6,
                   runSpacing: 6,
                   children: [
-                    _metaChip('库存 ${item.stock}', const Color(0xFFEAF2FF)),
-                    _metaChip('${item.pointsCost} 积分', const Color(0xFFFFF3E2)),
+                    _metaChip('库存 ${item.stock}', AppTheme.softBlue),
+                    _metaChip('${item.pointsCost} 积分', AppTheme.softAmber),
                   ],
                 ),
               ],

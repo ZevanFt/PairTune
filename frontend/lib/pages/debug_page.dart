@@ -63,7 +63,7 @@ class _DebugPageState extends State<DebugPage> {
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [Color(0xFFFFFBF4), Color(0xFFFFF6F0), Color(0xFFF1F7FF)],
+            colors: [AppTheme.pageBgTop, AppTheme.pageBgMid, AppTheme.pageBgBottom],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -229,7 +229,7 @@ class _DebugPageState extends State<DebugPage> {
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.92),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE8E0D4)),
+        border: Border.all(color: AppTheme.panelBorder),
       ),
       child: Wrap(
         spacing: 8,
@@ -266,7 +266,7 @@ class _DebugPageState extends State<DebugPage> {
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.88),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE6DDD1)),
+        border: Border.all(color: AppTheme.panelBorder),
       ),
       child: Text(
         text,
@@ -286,11 +286,11 @@ class _DebugPageState extends State<DebugPage> {
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: isError
-            ? const Color(0xFFFFF2F2).withValues(alpha: 0.92)
+            ? AppTheme.errorBg.withValues(alpha: 0.92)
             : Colors.white.withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: isError ? const Color(0xFFF0C5C5) : const Color(0xFFE8E0D4),
+          color: isError ? AppTheme.errorBorder : AppTheme.panelBorder,
         ),
       ),
       child: SelectableText(

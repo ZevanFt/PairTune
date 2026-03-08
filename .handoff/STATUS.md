@@ -236,3 +236,19 @@ flutter run -d 55c83fe9
   - 统一圆角、内边距、按钮层级
   - 输入项与说明文字间距统一
 - 验证：`flutter analyze` 通过（No issues found）
+
+## Codex UI 第六轮优化（2026-03-09）
+- 四个主页面 AppBar 已统一为 `状态图标 + 标题`：
+  - Home / Store / Notifications / Profile
+  - 指示器仅图标无文字，状态语义：灰=检测中、绿=在线、红=离线/异常
+- 新增并启用统一浅色语义色体系：`frontend/lib/ui/app_theme.dart`
+  - 页面背景、面板、边框、柔和标签色、错误/警告底色与边框、Hero 色
+- 核心页面已批量去除分散硬编码色并收敛到主题变量：
+  - `main.dart`
+  - `home_page.dart`
+  - `store_page.dart`
+  - `notifications_page.dart`
+  - `profile_page.dart`
+  - `edit_task_page.dart`
+  - `debug_page.dart`
+- 验证：`flutter analyze` 通过（No issues found）

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../services/account_api_service.dart';
+import '../services/health_api_service.dart';
 import '../ui/app_theme.dart';
 import '../utils/error_display.dart';
 import '../widgets/shimmer_block.dart';
@@ -17,8 +18,10 @@ class NotificationsPage extends StatefulWidget {
 
 class _NotificationsPageState extends State<NotificationsPage> {
   final _accountApi = AccountApiService();
+  final _healthApi = HealthApiService();
   bool _loading = true;
   String? _error;
+  BackendHealthStatus? _healthStatus;
   int _unreadCount = 0;
   List<NoticeItem> _list = [];
 
@@ -54,8 +57,10 @@ class _NotificationsPageState extends State<NotificationsPage> {
         _error = formatErrorMessage(e);
       });
     } finally {
+      final health = await _healthApi.checkHealth();
       if (mounted) {
         setState(() {
+          _healthStatus = health;
           _loading = false;
         });
       }
@@ -81,7 +86,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('通知中心'),
+        title: _buildTitleWithHealth('通知中心'),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 8),
@@ -95,7 +100,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [Color(0xFFFFFBF4), Color(0xFFFFF6F0), Color(0xFFF1F7FF)],
+            colors: [AppTheme.pageBgTop, AppTheme.pageBgMid, AppTheme.pageBgBottom],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -131,6 +136,26 @@ class _NotificationsPageState extends State<NotificationsPage> {
         ),
       ),
     );
+  }
+
+  Widget _buildTitleWithHealth(String title) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _buildHealthDot(),
+        const SizedBox(width: 8),
+        Text(title),
+      ],
+    );
+  }
+
+  Widget _buildHealthDot() {
+    final status = _healthStatus;
+    final online = status?.online == true;
+    final color = status == null
+        ? Colors.grey
+        : (online ? AppTheme.success : AppTheme.danger);
+    return Icon(Icons.circle, size: 11, color: color);
   }
 
   Widget _buildHero(String ownerLabel) {
@@ -257,8 +282,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF2F2),
-        border: Border.all(color: const Color(0xFFF0C5C5)),
+        color: AppTheme.errorBg,
+        border: Border.all(color: AppTheme.errorBorder),
         borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
@@ -287,7 +312,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.88),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE6DDD1)),
+        border: Border.all(color: AppTheme.panelBorder),
       ),
       child: Text(
         text,
@@ -307,25 +332,25 @@ class _NotificationsPageState extends State<NotificationsPage> {
         Icons.alarm_rounded,
         const Color(0xFFFFF0D8),
         '任务',
-        const Color(0xFFFFF3E2),
+        AppTheme.softAmber,
       ),
       'exchange' => (
         Icons.redeem_rounded,
         const Color(0xFFE8F6E8),
         '兑换',
-        const Color(0xFFEAF8EF),
+        AppTheme.softGreen,
       ),
       'relation' => (
         Icons.favorite_rounded,
         const Color(0xFFFDE7F0),
         '关系',
-        const Color(0xFFFDEDF5),
+        AppTheme.softRose,
       ),
       _ => (
         Icons.system_update_alt_rounded,
         const Color(0xFFE8F1FF),
         '系统',
-        const Color(0xFFEAF2FF),
+        AppTheme.softBlue,
       ),
     };
 
@@ -335,7 +360,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.92),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE8E0D4)),
+        border: Border.all(color: AppTheme.panelBorder),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
