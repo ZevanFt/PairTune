@@ -276,6 +276,18 @@ flutter run -d 55c83fe9
   - 条目卡与开关卡统一轻阴影与文本层级，信息密度更一致
   - 副标题文本统一为低噪声样式（字号/字重/行高）
 - 验证：`flutter analyze` 通过（No issues found）
+
+## Codex UI 第十一轮优化（2026-03-10）
+- 新增公共样式层：`frontend/lib/ui/app_surface.dart`
+  - 统一卡片圆角、边框、透明度与阴影 token
+  - 提供 `card()` / `subtleCard()` 复用入口
+- 四主页接入公共卡片样式，减少页面内重复 `BoxDecoration`：
+  - `frontend/lib/pages/home_page.dart`
+  - `frontend/lib/pages/store_page.dart`
+  - `frontend/lib/pages/notifications_page.dart`
+  - `frontend/lib/pages/profile_page.dart`
+- 本轮效果：后续若要调整卡片“厚薄感/透明度/阴影”，只需改一处样式文件
+- 验证：`flutter analyze` 通过（No issues found）
   - 保留原有重复任务、周几重复、共同任务字段与保存逻辑
 - 已完成调试页重构：`frontend/lib/pages/debug_page.dart`
   - 顶部诊断 Hero：Base URL / 健康状态 / 日志数

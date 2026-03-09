@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/account_api_service.dart';
 import '../services/health_api_service.dart';
+import '../ui/app_surface.dart';
 import '../ui/app_theme.dart';
 import '../utils/error_display.dart';
 import '../widgets/hero_panel.dart';
@@ -315,18 +316,7 @@ class _ProfilePageState extends State<ProfilePage> {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
-      decoration: BoxDecoration(
-        color: AppTheme.panel.withValues(alpha: 0.94),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.panelBorder),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0F1F2E48),
-            blurRadius: 10,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
+      decoration: AppSurface.card(),
       child: Row(
         children: [
           Container(
@@ -380,18 +370,7 @@ class _ProfilePageState extends State<ProfilePage> {
   }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
-        color: AppTheme.panel.withValues(alpha: 0.94),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.panelBorder),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0F1F2E48),
-            blurRadius: 10,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
+      decoration: AppSurface.card(),
       child: ListTile(
         leading: Container(
           width: 38,

@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../services/account_api_service.dart';
 import '../services/health_api_service.dart';
+import '../ui/app_surface.dart';
 import '../ui/app_theme.dart';
 import '../utils/error_display.dart';
 import '../widgets/hero_panel.dart';
@@ -240,11 +241,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-      decoration: BoxDecoration(
-        color: AppTheme.panel.withValues(alpha: 0.9),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppTheme.panelBorder),
-      ),
+      decoration: AppSurface.subtleCard(),
       child: Text(
         text,
         style: const TextStyle(
@@ -288,18 +285,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppTheme.panel.withValues(alpha: 0.94),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.panelBorder),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0F1F2E48),
-            blurRadius: 10,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
+      decoration: AppSurface.card(),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
