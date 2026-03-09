@@ -175,7 +175,7 @@ class _StorePageState extends State<StorePage> {
                     Wrap(
                       spacing: 8,
                       children: [
-                        _metaChip('消耗 ${item.pointsCost} 积分', AppTheme.softAmber),
+                        _metaChip('消耗 ${item.pointsCost} 积分', AppTheme.softViolet),
                         _metaChip('库存 ${item.stock}', AppTheme.softBlue),
                       ],
                     ),
@@ -497,15 +497,15 @@ class _StorePageState extends State<StorePage> {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(22),
         gradient: const LinearGradient(
-          colors: [Color(0xFF16213A), Color(0xFF2D426D), Color(0xFF3E5688)],
+          colors: [AppTheme.heroStart, AppTheme.heroMid, AppTheme.heroEnd],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x2C2B3458),
-            blurRadius: 24,
-            offset: Offset(0, 10),
+            color: Color(0x1F243355),
+            blurRadius: 18,
+            offset: Offset(0, 8),
           ),
         ],
       ),
@@ -630,7 +630,7 @@ class _StorePageState extends State<StorePage> {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.86),
+        color: AppTheme.panel.withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppTheme.panelBorder),
       ),
@@ -650,7 +650,7 @@ class _StorePageState extends State<StorePage> {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.92),
+        color: AppTheme.panel.withValues(alpha: 0.94),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppTheme.panelBorder),
       ),
@@ -670,7 +670,7 @@ class _StorePageState extends State<StorePage> {
                   runSpacing: 6,
                   children: [
                     _metaChip('库存 ${item.stock}', AppTheme.softBlue),
-                    _metaChip('${item.pointsCost} 积分', AppTheme.softAmber),
+                    _metaChip('${item.pointsCost} 积分', AppTheme.softViolet),
                   ],
                 ),
                 if (item.description != null && item.description!.trim().isNotEmpty) ...[
@@ -702,7 +702,7 @@ class _StorePageState extends State<StorePage> {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.92),
+        color: AppTheme.panel.withValues(alpha: 0.94),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppTheme.panelBorder),
       ),
@@ -722,7 +722,7 @@ class _StorePageState extends State<StorePage> {
                   runSpacing: 6,
                   children: [
                     _metaChip('库存 ${item.stock}', AppTheme.softBlue),
-                    _metaChip('${item.pointsCost} 积分', AppTheme.softAmber),
+                    _metaChip('${item.pointsCost} 积分', AppTheme.softViolet),
                   ],
                 ),
               ],
@@ -748,9 +748,9 @@ class _StorePageState extends State<StorePage> {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.88),
+        color: AppTheme.panel.withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE9E0D4)),
+        border: Border.all(color: AppTheme.panelBorder),
       ),
       child: Row(
         children: [
