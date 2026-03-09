@@ -300,7 +300,7 @@ class _HomePageState extends State<HomePage> {
               const SizedBox(height: 16),
               _buildSectionHeader('任务列表', '按状态和排序查看'),
               const SizedBox(height: 8),
-              _buildFilterBar(),
+              _buildListToolbar(),
               const SizedBox(height: 10),
               if (_loading && _tasks.isEmpty) ..._buildTaskSkeletons(),
               ..._displayTasks.map(_buildTaskTile),
@@ -561,7 +561,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildFilterBar() {
+  Widget _buildListToolbar() {
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
@@ -569,61 +569,115 @@ class _HomePageState extends State<HomePage> {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppTheme.panelBorder),
       ),
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        crossAxisAlignment: WrapCrossAlignment.center,
+      child: Row(
         children: [
-          ...TaskFilterType.values.map(
-            (filter) => ChoiceChip(
-              label: Text(_filterLabel(filter)),
-              selected: _filter == filter,
-              backgroundColor: const Color(0xFFF6F2EC),
-              selectedColor: const Color(0xFFE5EDFF),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-                side: BorderSide(
-                  color: _filter == filter
-                      ? const Color(0xFFB7C7EE)
-                      : const Color(0xFFE1D9CC),
-                ),
-              ),
-              labelStyle: TextStyle(
-                color: _filter == filter ? AppTheme.primary : AppTheme.ink,
-                fontWeight: FontWeight.w700,
-              ),
-              onSelected: (_) => setState(() => _filter = filter),
+          Expanded(
+            child: Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                _taskMetaChip('状态: ${_filterLabel(_filter)}', AppTheme.softBlue),
+                _taskMetaChip('排序: ${_sortLabel(_sort)}', AppTheme.softAmber),
+              ],
             ),
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFFE0D6C8)),
-            ),
-            child: DropdownButton<TaskSortType>(
-              value: _sort,
-              underline: const SizedBox.shrink(),
-              borderRadius: BorderRadius.circular(12),
-              items: TaskSortType.values
-                  .map(
-                    (sort) => DropdownMenuItem(
-                      value: sort,
-                      child: Text('排序: ${_sortLabel(sort)}'),
-                    ),
-                  )
-                  .toList(),
-              onChanged: (value) {
-                if (value != null) {
-                  setState(() => _sort = value);
-                }
-              },
-            ),
+          const SizedBox(width: 8),
+          FilledButton.tonalIcon(
+            onPressed: _openViewOptionsSheet,
+            icon: const Icon(Icons.tune_rounded, size: 18),
+            label: const Text('筛选'),
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _openViewOptionsSheet() async {
+    TaskFilterType nextFilter = _filter;
+    TaskSortType nextSort = _sort;
+
+    final applied = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppTheme.panel,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) => Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+            child: SafeArea(
+              top: false,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '筛选与排序',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    '设置任务列表展示方式',
+                    style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text('状态', style: TextStyle(fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: TaskFilterType.values
+                        .map(
+                          (filter) => ChoiceChip(
+                            label: Text(_filterLabel(filter)),
+                            selected: nextFilter == filter,
+                            onSelected: (_) =>
+                                setSheetState(() => nextFilter = filter),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text('排序', style: TextStyle(fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 8),
+                  ...TaskSortType.values.map(
+                    (sort) => RadioListTile<TaskSortType>(
+                      dense: true,
+                      value: sort,
+                      groupValue: nextSort,
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(_sortLabel(sort)),
+                      onChanged: (value) {
+                        if (value != null) {
+                          setSheetState(() => nextSort = value);
+                        }
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      child: const Text('应用'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+
+    if (applied == true && mounted) {
+      setState(() {
+        _filter = nextFilter;
+        _sort = nextSort;
+      });
+    }
   }
 
   Widget _quadrantCard(
