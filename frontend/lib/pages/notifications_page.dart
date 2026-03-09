@@ -112,7 +112,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
             children: [
               _buildHero(ownerLabel),
               const SizedBox(height: 14),
-              _buildSectionHeader('最新动态', '按时间倒序展示提醒事件'),
+              _buildSectionHeader('最新动态', '按时间倒序查看提醒'),
               const SizedBox(height: 8),
               if (_error != null)
                 Padding(

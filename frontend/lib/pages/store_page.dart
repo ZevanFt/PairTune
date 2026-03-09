@@ -445,7 +445,7 @@ class _StorePageState extends State<StorePage> {
               const SizedBox(height: 16),
               _buildSectionHeader(
                 widget.duoEnabled ? '可兑换商品（搭档发布）' : '奖励区',
-                widget.duoEnabled ? '把积分换成你们的奖励' : '先积累积分并发布奖励',
+                widget.duoEnabled ? '消耗积分并兑换奖励' : '先积累积分并准备奖励',
               ),
               const SizedBox(height: 8),
               if (widget.duoEnabled) ...[
@@ -458,7 +458,7 @@ class _StorePageState extends State<StorePage> {
               ] else
                 _buildEmptyCard('单人模式下暂不开放双人兑换，邀请搭档后即可双向兑换。'),
               const SizedBox(height: 16),
-              _buildSectionHeader('我发布的商品', '你可以编辑或下架自己发布的奖励'),
+              _buildSectionHeader('我发布的商品', '维护商品并管理上架状态'),
               const SizedBox(height: 8),
               if (_loading && _mine.isEmpty)
                 ..._buildListSkeletons()
@@ -467,7 +467,7 @@ class _StorePageState extends State<StorePage> {
                 if (_mine.isEmpty) _buildEmptyCard('你还没发布商品'),
               ],
               const SizedBox(height: 16),
-              _buildSectionHeader('已兑换记录', '记录每一次积分消费'),
+              _buildSectionHeader('已兑换记录', '追踪每一次积分兑换'),
               const SizedBox(height: 8),
               if (_loading && _owned.isEmpty)
                 ..._buildListSkeletons()

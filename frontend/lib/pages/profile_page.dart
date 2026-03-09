@@ -173,7 +173,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
               _buildHeaderCard(profile),
               const SizedBox(height: 16),
-              _buildSectionTitle('资料与关系', '管理个人资料与双人协作身份'),
+              _buildSectionTitle('资料与关系', '编辑资料并维护协作身份'),
               const SizedBox(height: 8),
               _buildItem(
                 Icons.edit_rounded,
@@ -189,7 +189,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 onChanged: _changeDuoMode,
               ),
               const SizedBox(height: 12),
-              _buildSectionTitle('账号与通知', '控制账号安全与消息推送行为'),
+              _buildSectionTitle('账号与通知', '管理账号安全并调整消息提醒'),
               const SizedBox(height: 8),
               _buildItem(Icons.security_rounded, '账号安全', '手机号/邮箱/登录方式'),
               _buildSwitchCard(
@@ -199,7 +199,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 onChanged: _changeNotificationMode,
               ),
               const SizedBox(height: 12),
-              _buildSectionTitle('支持与隐私', '反馈、调试与数据相关能力'),
+              _buildSectionTitle('支持与隐私', '反馈问题并管理隐私数据'),
               const SizedBox(height: 8),
               _buildItem(Icons.feedback_rounded, '帮助与反馈', '问题反馈与产品建议'),
               _buildItem(
