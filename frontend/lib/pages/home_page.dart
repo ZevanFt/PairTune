@@ -466,29 +466,42 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildListToolbar() {
     return Container(
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.82),
+        color: AppTheme.panel.withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppTheme.panelBorder),
       ),
       child: Row(
         children: [
           Expanded(
-            child: Wrap(
-              spacing: 6,
-              runSpacing: 6,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _taskMetaChip('状态: ${_filterLabel(_filter)}', AppTheme.softBlue),
-                _taskMetaChip('排序: ${_sortLabel(_sort)}', AppTheme.softViolet),
+                Text(
+                  '状态 ${_filterLabel(_filter)} · 排序 ${_sortLabel(_sort)}',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.ink,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                const Text(
+                  '按当前条件展示任务',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: AppTheme.textMuted,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ],
             ),
           ),
-          const SizedBox(width: 8),
-          FilledButton.tonalIcon(
+          TextButton.icon(
             onPressed: _openViewOptionsSheet,
             icon: const Icon(Icons.tune_rounded, size: 18),
-            label: const Text('筛选'),
+            label: const Text('调整'),
           ),
         ],
       ),
@@ -666,15 +679,22 @@ class _HomePageState extends State<HomePage> {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.9),
+        color: AppTheme.panel.withValues(alpha: 0.92),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppTheme.panelBorder),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0F1F2E48),
+            blurRadius: 10,
+            offset: Offset(0, 4),
+          ),
+        ],
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
         onTap: () => _editTask(task),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
+          padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -693,15 +713,40 @@ class _HomePageState extends State<HomePage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      task.title,
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 16,
-                        decoration: task.isDone ? TextDecoration.lineThrough : null,
-                        color: task.isDone ? AppTheme.textMuted : AppTheme.ink,
-                      ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            task.title,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 16,
+                              decoration: task.isDone
+                                  ? TextDecoration.lineThrough
+                                  : null,
+                              color: task.isDone
+                                  ? AppTheme.textMuted
+                                  : AppTheme.ink,
+                            ),
+                          ),
+                        ),
+                        _taskMoreMenu(task),
+                      ],
                     ),
+                    if (task.note != null && task.note!.trim().isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        task.note!.trim(),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: AppTheme.textMuted,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          height: 1.3,
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 8),
                     Wrap(
                       spacing: 6,
@@ -727,20 +772,6 @@ class _HomePageState extends State<HomePage> {
                   ],
                 ),
               ),
-              Column(
-                children: [
-                  IconButton(
-                    visualDensity: VisualDensity.compact,
-                    icon: const Icon(Icons.edit_outlined, size: 20),
-                    onPressed: () => _editTask(task),
-                  ),
-                  IconButton(
-                    visualDensity: VisualDensity.compact,
-                    icon: const Icon(Icons.delete_outline, size: 20),
-                    onPressed: () => _delete(task),
-                  ),
-                ],
-              ),
             ],
           ),
         ),
@@ -748,9 +779,41 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Widget _taskMoreMenu(TaskItem task) {
+    return PopupMenuButton<String>(
+      tooltip: '更多操作',
+      icon: const Icon(Icons.more_horiz_rounded, size: 20),
+      onSelected: (value) {
+        if (value == 'edit') {
+          _editTask(task);
+        } else if (value == 'delete') {
+          _delete(task);
+        }
+      },
+      itemBuilder: (context) => const [
+        PopupMenuItem<String>(
+          value: 'edit',
+          child: ListTile(
+            dense: true,
+            leading: Icon(Icons.edit_outlined, size: 18),
+            title: Text('编辑任务'),
+          ),
+        ),
+        PopupMenuItem<String>(
+          value: 'delete',
+          child: ListTile(
+            dense: true,
+            leading: Icon(Icons.delete_outline, size: 18),
+            title: Text('删除任务'),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _taskMetaChip(String text, Color bg) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(999),
@@ -758,7 +821,7 @@ class _HomePageState extends State<HomePage> {
       child: Text(
         text,
         style: const TextStyle(
-          fontSize: 11,
+          fontSize: 10.5,
           color: AppTheme.ink,
           fontWeight: FontWeight.w600,
         ),
@@ -770,20 +833,20 @@ class _HomePageState extends State<HomePage> {
     return Row(
       children: [
         Container(
-          width: 4,
-          height: 28,
+          width: 8,
+          height: 8,
           decoration: BoxDecoration(
             color: AppTheme.blush,
             borderRadius: BorderRadius.circular(999),
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 10),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               title,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
             ),
             Text(
               subtitle,

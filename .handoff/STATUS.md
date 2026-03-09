@@ -241,6 +241,15 @@ flutter run -d 55c83fe9
   - 增加 `selectedIcon` 两态图标（任务/商城/通知/个人）
   - 底栏最后一项文案由“我的”改为“个人”
 - 验证：`flutter analyze` 通过（No issues found）
+
+## Codex UI 第七轮优化（2026-03-09）
+- 首页细节收敛：`frontend/lib/pages/home_page.dart`
+  - 列表工具条改为“状态/排序摘要 + 调整”轻量结构，减少彩色 chip 堆叠
+  - 任务卡片操作区由右侧双按钮改为 `more` 菜单（编辑/删除），降低视觉噪声
+  - 任务卡支持展示备注摘要（最多两行），信息层次更清晰
+  - 分区标题从粗色条调整为小圆点标识，整体更简约
+  - 任务卡阴影与面板透明度微调，提升层次但不厚重
+- 验证：`flutter analyze` 通过（No issues found）
   - 保留原有重复任务、周几重复、共同任务字段与保存逻辑
 - 已完成调试页重构：`frontend/lib/pages/debug_page.dart`
   - 顶部诊断 Hero：Base URL / 健康状态 / 日志数
