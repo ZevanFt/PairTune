@@ -164,15 +164,15 @@ class _NotificationsPageState extends State<NotificationsPage> {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(22),
         gradient: const LinearGradient(
-          colors: [Color(0xFF17284A), Color(0xFF314772), Color(0xFF3C527F)],
+          colors: [AppTheme.heroStart, AppTheme.heroMid, AppTheme.heroEnd],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x2A273C63),
-            blurRadius: 22,
-            offset: Offset(0, 10),
+            color: Color(0x1F243355),
+            blurRadius: 18,
+            offset: Offset(0, 8),
           ),
         ],
       ),
@@ -182,7 +182,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
-              color: const Color(0x2DFFFFFF),
+              color: Color(0x2DFFFFFF),
               borderRadius: BorderRadius.circular(999),
             ),
             child: const Text(
@@ -310,7 +310,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.88),
+        color: AppTheme.panel.withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppTheme.panelBorder),
       ),
@@ -330,19 +330,19 @@ class _NotificationsPageState extends State<NotificationsPage> {
     final (icon, color, badgeText, badgeBg) = switch (notice.type) {
       'task' => (
         Icons.alarm_rounded,
-        const Color(0xFFFFF0D8),
+        AppTheme.softBlue,
         '任务',
-        AppTheme.softAmber,
+        AppTheme.softViolet,
       ),
       'exchange' => (
         Icons.redeem_rounded,
-        const Color(0xFFE8F6E8),
+        AppTheme.softBlue,
         '兑换',
-        AppTheme.softGreen,
+        AppTheme.softViolet,
       ),
       'relation' => (
         Icons.favorite_rounded,
-        const Color(0xFFFDE7F0),
+        AppTheme.softViolet,
         '关系',
         AppTheme.softRose,
       ),
@@ -358,7 +358,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.92),
+        color: AppTheme.panel.withValues(alpha: 0.94),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppTheme.panelBorder),
       ),
@@ -372,7 +372,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
               color: color,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(icon, color: const Color(0xFF1B2948)),
+            child: Icon(icon, color: AppTheme.primary),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -389,7 +389,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                           fontSize: 15,
                           color: notice.isRead
                               ? Colors.grey.shade700
-                              : const Color(0xFF192948),
+                              : AppTheme.ink,
                         ),
                       ),
                     ),
