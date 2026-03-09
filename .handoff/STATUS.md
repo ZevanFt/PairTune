@@ -339,6 +339,28 @@ flutter run -d 55c83fe9
   - `app_theme.dart` 新增中性色 token（`neutral`/`neutralStrong`）
   - 主页面健康点与灰色文字改为 token，减少硬编码灰色
 - 验证：`flutter analyze` 通过（No issues found）
+
+## Codex 第十六轮（2026-03-10）
+- 商城信息架构重构（按产品思路）：
+  - `store_page.dart` 主页面收敛为“余额 + 商城列表”
+  - 新增子页面：
+    - `store_my_products_page.dart`（我发布的商品）
+    - `store_owned_records_page.dart`（兑换记录）
+- 认证体系从“UI 壳”升级为“可用 API”：
+  - 后端新增表：`auth_users`、`auth_sessions`
+  - 后端新增接口：`/auth/register/phone`、`/auth/login/phone`、`/auth/login/wechat`、`/auth/session`、`/auth/logout`
+  - 前端新增 `auth_api_service.dart` 并接入 `auth_page.dart`
+  - `main.dart` 已接认证前置流程（登录后进入应用）
+- 个人中心子页面补齐：
+  - 新增通用详情页模板：`settings_detail_page.dart`
+  - 关系管理/账号安全/帮助反馈/隐私数据已接入子页面
+- 颜色收口：
+  - `app_theme.dart` 增加 `neutral` / `neutralStrong`，替换主页面残留灰色硬编码
+- 文档同步：
+  - `docs/BACKEND_SCHEMA_AND_API.md` 已补充 Auth 表与 API
+- 验证：
+  - `flutter analyze` 通过（No issues found）
+  - `node --check backend/src/main.js` 通过
   - 保留原有重复任务、周几重复、共同任务字段与保存逻辑
 - 已完成调试页重构：`frontend/lib/pages/debug_page.dart`
   - 顶部诊断 Hero：Base URL / 健康状态 / 日志数

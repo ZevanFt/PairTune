@@ -1,4 +1,5 @@
 const path = require('path');
+const crypto = require('crypto');
 const express = require('express');
 const cors = require('cors');
 const Database = require('better-sqlite3');
@@ -23,6 +24,22 @@ function toBoolInt(value, fallback = 0) {
   if (value === 1 || value === '1' || value === 'true') return 1;
   if (value === 0 || value === '0' || value === 'false') return 0;
   return fallback ? 1 : 0;
+}
+
+function hashPassword(raw) {
+  return crypto.createHash('sha256').update(String(raw || '')).digest('hex');
+}
+
+function createSessionToken() {
+  return crypto.randomBytes(24).toString('hex');
+}
+
+function isPhone(value) {
+  return /^1\d{10}$/.test(String(value || '').trim());
+}
+
+function isStrongPassword(value) {
+  return String(value || '').trim().length >= 6;
 }
 
 function ensureSchema() {
@@ -105,6 +122,27 @@ CREATE TABLE IF NOT EXISTS notifications (
   body TEXT NOT NULL,
   is_read INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS auth_users (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  phone TEXT UNIQUE,
+  wechat_openid TEXT UNIQUE,
+  password_hash TEXT,
+  display_name TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'active',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS auth_sessions (
+  token TEXT PRIMARY KEY,
+  user_id INTEGER NOT NULL,
+  provider TEXT NOT NULL,
+  owner_hint TEXT NOT NULL DEFAULT 'me',
+  expires_at TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  last_seen_at TEXT NOT NULL
 );
 `);
 
@@ -862,6 +900,159 @@ app.post('/notifications/mark-all-read', (req, res) => {
   res.json({ code: 200, message: '全部通知已读成功', result: { changes: info.changes } });
 });
 
+app.post('/auth/register/phone', (req, res) => {
+  const { phone, password, display_name = '新用户' } = req.body || {};
+  if (!isPhone(phone)) {
+    return res.status(400).json({ code: 400, message: '手机号格式非法', result: null });
+  }
+  if (!isStrongPassword(password)) {
+    return res.status(400).json({ code: 400, message: '密码至少 6 位', result: null });
+  }
+  const exists = db.prepare('SELECT id FROM auth_users WHERE phone = ?').get(String(phone).trim());
+  if (exists) {
+    return res.status(409).json({ code: 409, message: '手机号已注册', result: null });
+  }
+  const now = new Date().toISOString();
+  const info = db.prepare(
+    `INSERT INTO auth_users(phone, password_hash, display_name, status, created_at, updated_at)
+     VALUES (?, ?, ?, 'active', ?, ?)`,
+  ).run(
+    String(phone).trim(),
+    hashPassword(password),
+    String(display_name || '新用户').trim(),
+    now,
+    now,
+  );
+  const user = db.prepare('SELECT id, phone, wechat_openid, display_name, status, created_at, updated_at FROM auth_users WHERE id = ?')
+    .get(info.lastInsertRowid);
+  res.json({ code: 200, message: '手机号注册成功', result: user });
+});
+
+app.post('/auth/login/phone', (req, res) => {
+  const { phone, password } = req.body || {};
+  if (!isPhone(phone) || !isStrongPassword(password)) {
+    return res.status(400).json({ code: 400, message: '手机号或密码格式非法', result: null });
+  }
+  const user = db.prepare(
+    'SELECT * FROM auth_users WHERE phone = ? AND status = ?',
+  ).get(String(phone).trim(), 'active');
+  if (!user || user.password_hash !== hashPassword(password)) {
+    return res.status(401).json({ code: 401, message: '手机号或密码错误', result: null });
+  }
+  const now = new Date();
+  const expires = new Date(now.getTime() + 1000 * 60 * 60 * 24 * 30).toISOString();
+  const token = createSessionToken();
+  db.prepare(
+    `INSERT INTO auth_sessions(token, user_id, provider, owner_hint, expires_at, created_at, last_seen_at)
+     VALUES (?, ?, 'phone', 'me', ?, ?, ?)`,
+  ).run(token, user.id, expires, now.toISOString(), now.toISOString());
+  res.json({
+    code: 200,
+    message: '登录成功',
+    result: {
+      token,
+      provider: 'phone',
+      expires_at: expires,
+      user: {
+        id: user.id,
+        phone: user.phone,
+        display_name: user.display_name,
+        status: user.status,
+      },
+    },
+  });
+});
+
+app.post('/auth/login/wechat', (req, res) => {
+  const { wechat_code, display_name = '微信用户' } = req.body || {};
+  if (!wechat_code || String(wechat_code).trim().length < 4) {
+    return res.status(400).json({ code: 400, message: 'wechat_code 非法', result: null });
+  }
+  const openid = `wx_${String(wechat_code).trim()}`;
+  const now = new Date().toISOString();
+  let user = db.prepare('SELECT * FROM auth_users WHERE wechat_openid = ?').get(openid);
+  if (!user) {
+    const info = db.prepare(
+      `INSERT INTO auth_users(phone, wechat_openid, password_hash, display_name, status, created_at, updated_at)
+       VALUES (NULL, ?, NULL, ?, 'active', ?, ?)`,
+    ).run(openid, String(display_name || '微信用户').trim(), now, now);
+    user = db.prepare('SELECT * FROM auth_users WHERE id = ?').get(info.lastInsertRowid);
+  }
+  const nowDate = new Date();
+  const expires = new Date(nowDate.getTime() + 1000 * 60 * 60 * 24 * 30).toISOString();
+  const token = createSessionToken();
+  db.prepare(
+    `INSERT INTO auth_sessions(token, user_id, provider, owner_hint, expires_at, created_at, last_seen_at)
+     VALUES (?, ?, 'wechat', 'me', ?, ?, ?)`,
+  ).run(token, user.id, expires, nowDate.toISOString(), nowDate.toISOString());
+  res.json({
+    code: 200,
+    message: '微信登录成功',
+    result: {
+      token,
+      provider: 'wechat',
+      expires_at: expires,
+      user: {
+        id: user.id,
+        wechat_openid: user.wechat_openid,
+        display_name: user.display_name,
+        status: user.status,
+      },
+    },
+  });
+});
+
+app.get('/auth/session', (req, res) => {
+  const token = String(req.query.token || '').trim();
+  if (!token) {
+    return res.status(400).json({ code: 400, message: 'token 不能为空', result: null });
+  }
+  const session = db.prepare(
+    `SELECT s.token, s.provider, s.owner_hint, s.expires_at, s.user_id,
+            u.display_name, u.phone, u.wechat_openid, u.status
+     FROM auth_sessions s
+     JOIN auth_users u ON u.id = s.user_id
+     WHERE s.token = ?`,
+  ).get(token);
+  if (!session) {
+    return res.status(404).json({ code: 404, message: '会话不存在', result: null });
+  }
+  if (new Date(session.expires_at).getTime() < Date.now()) {
+    db.prepare('DELETE FROM auth_sessions WHERE token = ?').run(token);
+    return res.status(401).json({ code: 401, message: '会话已过期', result: null });
+  }
+  db.prepare('UPDATE auth_sessions SET last_seen_at = ? WHERE token = ?').run(
+    new Date().toISOString(),
+    token,
+  );
+  res.json({
+    code: 200,
+    message: '会话有效',
+    result: {
+      token: session.token,
+      provider: session.provider,
+      owner_hint: session.owner_hint,
+      expires_at: session.expires_at,
+      user: {
+        id: session.user_id,
+        display_name: session.display_name,
+        phone: session.phone,
+        wechat_openid: session.wechat_openid,
+        status: session.status,
+      },
+    },
+  });
+});
+
+app.post('/auth/logout', (req, res) => {
+  const token = String(req.body?.token || '').trim();
+  if (!token) {
+    return res.status(400).json({ code: 400, message: 'token 不能为空', result: null });
+  }
+  db.prepare('DELETE FROM auth_sessions WHERE token = ?').run(token);
+  res.json({ code: 200, message: '退出成功', result: { token } });
+});
+
 app.get('/export/snapshot', (req, res) => {
   const now = new Date().toISOString();
   const result = {
@@ -874,6 +1065,8 @@ app.get('/export/snapshot', (req, res) => {
     profiles: db.prepare('SELECT * FROM profiles ORDER BY owner ASC').all(),
     settings: db.prepare('SELECT * FROM app_settings ORDER BY owner ASC').all(),
     notifications: db.prepare('SELECT * FROM notifications ORDER BY id DESC').all(),
+    auth_users: db.prepare('SELECT id, phone, wechat_openid, display_name, status, created_at, updated_at FROM auth_users ORDER BY id DESC').all(),
+    auth_sessions: db.prepare('SELECT token, user_id, provider, owner_hint, expires_at, created_at, last_seen_at FROM auth_sessions ORDER BY created_at DESC').all(),
   };
   res.json({ code: 200, message: '导出快照成功', result });
 });

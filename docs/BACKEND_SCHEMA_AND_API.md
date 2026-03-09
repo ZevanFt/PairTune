@@ -1,6 +1,6 @@
 # 合拍 PairTune 后端数据表与 API 说明
 
-更新时间：2026-03-08
+更新时间：2026-03-10
 
 ## 1. 技术与边界
 - 运行时：Node.js + Express
@@ -90,6 +90,27 @@
 - `is_read` INTEGER NOT NULL DEFAULT 0
 - `created_at` TEXT NOT NULL
 
+### 2.9 `auth_users`（新增）
+账号用户表（手机号 / 微信）
+- `id` INTEGER PK AUTOINCREMENT
+- `phone` TEXT UNIQUE (可空)
+- `wechat_openid` TEXT UNIQUE (可空)
+- `password_hash` TEXT (可空，微信账号可无密码)
+- `display_name` TEXT NOT NULL
+- `status` TEXT NOT NULL DEFAULT `active`
+- `created_at` TEXT NOT NULL
+- `updated_at` TEXT NOT NULL
+
+### 2.10 `auth_sessions`（新增）
+登录会话表（Token）
+- `token` TEXT PK
+- `user_id` INTEGER NOT NULL
+- `provider` TEXT NOT NULL (`phone|wechat`)
+- `owner_hint` TEXT NOT NULL DEFAULT `me`
+- `expires_at` TEXT NOT NULL
+- `created_at` TEXT NOT NULL
+- `last_seen_at` TEXT NOT NULL
+
 ## 3. API 清单
 
 ### 3.1 Health
@@ -136,7 +157,23 @@
 
 ### 3.6 快照导出
 - `GET /export/snapshot`
-  - 现包含：`tasks/points/ledger/products/owned_items/profiles/settings/notifications`
+  - 现包含：`tasks/points/ledger/products/owned_items/profiles/settings/notifications/auth_users/auth_sessions`
+
+### 3.7 认证（新增）
+- `POST /auth/register/phone`
+  - 入参：`phone/password/display_name`
+  - 规则：手机号必须 11 位（`1xxxxxxxxxx`），密码至少 6 位
+- `POST /auth/login/phone`
+  - 入参：`phone/password`
+  - 返回：`token/provider/expires_at/user`
+- `POST /auth/login/wechat`
+  - 入参：`wechat_code/display_name`
+  - 当前为占位接入：用 `wechat_code` 映射 `wechat_openid`
+  - 返回：`token/provider/expires_at/user`
+- `GET /auth/session?token=...`
+  - 校验会话并返回用户信息，过期会自动清理
+- `POST /auth/logout`
+  - 入参：`token`
 
 ## 4. 请求示例
 
@@ -173,10 +210,10 @@ POST /notifications/mark-read
 ```
 
 ## 5. 当前风险与待升级
-- 仍缺正式账号体系与鉴权（JWT/Session）
-- `owner` 参数模型适合本地 MVP，不适合生产安全场景
+- 已有基础账号会话模型（`auth_users/auth_sessions`），但仍未接入真实短信验证码与微信 OAuth
+- `owner` 参数模型仍用于业务视角切换，生产环境建议替换为“会话用户 + 关系绑定”模型
 - 缺少接口级测试与迁移版本管理（目前为启动时自动建表）
 - 建议下一阶段引入：
-  - 用户表/关系绑定邀请码
+  - 关系绑定邀请码（把 `me|partner` 迁移为真实双人关系）
   - 统一操作日志
   - API 输入校验库（如 zod / joi）

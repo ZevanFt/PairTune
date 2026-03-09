@@ -43,7 +43,11 @@ class _RootPageState extends State<_RootPage> {
   Widget build(BuildContext context) {
     if (!_authed) {
       return AuthPage(
-        onAuthenticated: () => setState(() => _authed = true),
+        onAuthenticated: (token) {
+          setState(() {
+            _authed = true;
+          });
+        },
       );
     }
 
