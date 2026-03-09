@@ -250,6 +250,15 @@ flutter run -d 55c83fe9
   - 分区标题从粗色条调整为小圆点标识，整体更简约
   - 任务卡阴影与面板透明度微调，提升层次但不厚重
 - 验证：`flutter analyze` 通过（No issues found）
+
+## Codex UI 第八轮优化（2026-03-09）
+- 商城页细节收敛：`frontend/lib/pages/store_page.dart`
+  - “发布商品”入口从底部 FAB 改为 AppBar 右上角 `发布` 文本按钮
+  - 分区标题样式与首页统一为小圆点标识，弱化厚重色条
+  - 商品卡片与兑换记录卡补充轻阴影，提升层次但保持简约
+  - 商品信息 chip 配色降低饱和度，减少紫色强调
+  - “我发布的商品”操作改为 `more` 菜单（编辑/下架），减少按钮堆叠
+- 验证：`flutter analyze` 通过（No issues found）
   - 保留原有重复任务、周几重复、共同任务字段与保存逻辑
 - 已完成调试页重构：`frontend/lib/pages/debug_page.dart`
   - 顶部诊断 Hero：Base URL / 健康状态 / 日志数

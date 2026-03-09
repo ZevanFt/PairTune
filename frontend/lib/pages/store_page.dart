@@ -392,6 +392,11 @@ class _StorePageState extends State<StorePage> {
       appBar: AppBar(
         title: _buildTitleWithHealth('积分商城'),
         actions: [
+          TextButton.icon(
+            onPressed: _showCreateProductPage,
+            icon: const Icon(Icons.add_rounded, size: 18),
+            label: const Text('发布'),
+          ),
           IconButton(
             tooltip: '导出快照',
             onPressed: _exportSnapshot,
@@ -413,11 +418,6 @@ class _StorePageState extends State<StorePage> {
               ),
             ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showCreateProductPage,
-        label: const Text('发布商品'),
-        icon: const Icon(Icons.add_business_outlined),
       ),
       body: Container(
         decoration: const BoxDecoration(
@@ -476,7 +476,7 @@ class _StorePageState extends State<StorePage> {
                 ..._owned.map(_buildOwnedItem),
                 if (_owned.isEmpty) _buildEmptyCard('暂无兑换记录'),
               ],
-              const SizedBox(height: 88),
+              const SizedBox(height: 24),
             ],
           ),
         ),
@@ -516,20 +516,20 @@ class _StorePageState extends State<StorePage> {
     return Row(
       children: [
         Container(
-          width: 4,
-          height: 28,
+          width: 8,
+          height: 8,
           decoration: BoxDecoration(
             color: AppTheme.blush,
             borderRadius: BorderRadius.circular(999),
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 10),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               title,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
             ),
             Text(
               subtitle,
@@ -596,6 +596,13 @@ class _StorePageState extends State<StorePage> {
         color: AppTheme.panel.withValues(alpha: 0.94),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppTheme.panelBorder),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0F1F2E48),
+            blurRadius: 10,
+            offset: Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
         children: [
@@ -613,7 +620,7 @@ class _StorePageState extends State<StorePage> {
                   runSpacing: 6,
                   children: [
                     _metaChip('库存 ${item.stock}', AppTheme.softBlue),
-                    _metaChip('${item.pointsCost} 积分', AppTheme.softViolet),
+                    _metaChip('${item.pointsCost} 积分', AppTheme.softAmber),
                   ],
                 ),
                 if (item.description != null && item.description!.trim().isNotEmpty) ...[
@@ -624,6 +631,7 @@ class _StorePageState extends State<StorePage> {
                       color: AppTheme.textMuted,
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
+                      height: 1.3,
                     ),
                   ),
                 ],
@@ -648,6 +656,13 @@ class _StorePageState extends State<StorePage> {
         color: AppTheme.panel.withValues(alpha: 0.94),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppTheme.panelBorder),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0F1F2E48),
+            blurRadius: 10,
+            offset: Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
         children: [
@@ -665,22 +680,13 @@ class _StorePageState extends State<StorePage> {
                   runSpacing: 6,
                   children: [
                     _metaChip('库存 ${item.stock}', AppTheme.softBlue),
-                    _metaChip('${item.pointsCost} 积分', AppTheme.softViolet),
+                    _metaChip('${item.pointsCost} 积分', AppTheme.softAmber),
                   ],
                 ),
               ],
             ),
           ),
-          IconButton(
-            tooltip: '编辑',
-            onPressed: () => _showEditProductPage(item),
-            icon: const Icon(Icons.edit_outlined),
-          ),
-          IconButton(
-            tooltip: '下架',
-            onPressed: () => _delistProduct(item),
-            icon: const Icon(Icons.delete_outline),
-          ),
+          _productMoreMenu(item),
         ],
       ),
     );
@@ -694,6 +700,13 @@ class _StorePageState extends State<StorePage> {
         color: AppTheme.panel.withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppTheme.panelBorder),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0D1F2E48),
+            blurRadius: 8,
+            offset: Offset(0, 3),
+          ),
+        ],
       ),
       child: Row(
         children: [
@@ -728,12 +741,48 @@ class _StorePageState extends State<StorePage> {
 
   Widget _metaChip(String text, Color bg) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
       decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(999)),
       child: Text(
         text,
-        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+        style: const TextStyle(
+          fontSize: 10.5,
+          fontWeight: FontWeight.w600,
+          color: AppTheme.ink,
+        ),
       ),
+    );
+  }
+
+  Widget _productMoreMenu(ProductItem item) {
+    return PopupMenuButton<String>(
+      tooltip: '更多操作',
+      icon: const Icon(Icons.more_horiz_rounded, size: 20),
+      onSelected: (value) {
+        if (value == 'edit') {
+          _showEditProductPage(item);
+        } else if (value == 'delist') {
+          _delistProduct(item);
+        }
+      },
+      itemBuilder: (context) => const [
+        PopupMenuItem<String>(
+          value: 'edit',
+          child: ListTile(
+            dense: true,
+            leading: Icon(Icons.edit_outlined, size: 18),
+            title: Text('编辑商品'),
+          ),
+        ),
+        PopupMenuItem<String>(
+          value: 'delist',
+          child: ListTile(
+            dense: true,
+            leading: Icon(Icons.delete_outline, size: 18),
+            title: Text('下架商品'),
+          ),
+        ),
+      ],
     );
   }
 }
