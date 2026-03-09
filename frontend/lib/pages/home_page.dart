@@ -7,6 +7,7 @@ import '../services/health_api_service.dart';
 import '../services/store_api_service.dart';
 import '../services/task_api_service.dart';
 import '../ui/app_surface.dart';
+import '../ui/app_text.dart';
 import '../ui/app_theme.dart';
 import '../utils/error_display.dart';
 import '../widgets/hero_panel.dart';
@@ -737,12 +738,7 @@ class _HomePageState extends State<HomePage> {
                         task.note!.trim(),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AppTheme.textMuted,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          height: 1.3,
-                        ),
+                        style: AppText.bodyMuted,
                       ),
                     ],
                     const SizedBox(height: 8),
@@ -760,11 +756,7 @@ class _HomePageState extends State<HomePage> {
                       const SizedBox(height: 7),
                       Text(
                         sharedProgress,
-                        style: const TextStyle(
-                          color: AppTheme.textMuted,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
+                        style: AppText.bodyMuted.copyWith(height: 1.2),
                       ),
                     ],
                   ],
@@ -818,11 +810,7 @@ class _HomePageState extends State<HomePage> {
       ),
       child: Text(
         text,
-        style: const TextStyle(
-          fontSize: 10.5,
-          color: AppTheme.ink,
-          fontWeight: FontWeight.w600,
-        ),
+        style: AppText.chipText,
       ),
     );
   }
@@ -844,11 +832,11 @@ class _HomePageState extends State<HomePage> {
           children: [
             Text(
               title,
-              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+              style: AppText.sectionTitle,
             ),
             Text(
               subtitle,
-              style: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
+              style: AppText.sectionSubtitle,
             ),
           ],
         ),

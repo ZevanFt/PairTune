@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../services/account_api_service.dart';
 import '../services/health_api_service.dart';
 import '../ui/app_surface.dart';
+import '../ui/app_text.dart';
 import '../ui/app_theme.dart';
 import '../utils/error_display.dart';
 import '../widgets/hero_panel.dart';
@@ -295,11 +296,11 @@ class _ProfilePageState extends State<ProfilePage> {
           children: [
             Text(
               title,
-              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+              style: AppText.sectionTitle,
             ),
             Text(
               subtitle,
-              style: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
+              style: AppText.sectionSubtitle,
             ),
           ],
         ),
@@ -338,17 +339,12 @@ class _ProfilePageState extends State<ProfilePage> {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                  style: AppText.cardTitle.copyWith(fontSize: 15),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   subtitle,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppTheme.textMuted,
-                    fontWeight: FontWeight.w600,
-                    height: 1.3,
-                  ),
+                  style: AppText.bodyMuted,
                 ),
               ],
             ),
@@ -381,16 +377,8 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
           child: Icon(icon, color: AppTheme.primary),
         ),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
-        subtitle: Text(
-          subtitle,
-          style: const TextStyle(
-            fontSize: 12,
-            color: AppTheme.textMuted,
-            fontWeight: FontWeight.w600,
-            height: 1.3,
-          ),
-        ),
+        title: Text(title, style: AppText.cardTitle),
+        subtitle: Text(subtitle, style: AppText.bodyMuted),
         trailing: const Icon(Icons.chevron_right_rounded),
         onTap: onTap,
       ),

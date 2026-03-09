@@ -298,6 +298,17 @@ flutter run -d 55c83fe9
   - `frontend/lib/main.dart` 模式选择卡补充按压 overlay
   - `frontend/lib/pages/home_page.dart` 象限卡与任务卡补充统一按压 overlay
 - 验证：`flutter analyze` 通过（No issues found）
+
+## Codex UI 第十三轮优化（2026-03-10）
+- 文本层级统一：新增 `frontend/lib/ui/app_text.dart`
+  - 统一分区标题/分区副标题/卡片标题/辅助正文/chip 文本样式 token
+- 四主页逐步接入文本 token，减少手写 `TextStyle` 漂移：
+  - `frontend/lib/pages/home_page.dart`
+  - `frontend/lib/pages/store_page.dart`
+  - `frontend/lib/pages/notifications_page.dart`
+  - `frontend/lib/pages/profile_page.dart`
+- 本轮效果：字号、字重、说明文本层级更一致，后续调字只需改一处
+- 验证：`flutter analyze` 通过（No issues found）
   - 保留原有重复任务、周几重复、共同任务字段与保存逻辑
 - 已完成调试页重构：`frontend/lib/pages/debug_page.dart`
   - 顶部诊断 Hero：Base URL / 健康状态 / 日志数

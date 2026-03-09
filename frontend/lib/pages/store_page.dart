@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../services/health_api_service.dart';
 import '../services/store_api_service.dart';
 import '../ui/app_surface.dart';
+import '../ui/app_text.dart';
 import '../ui/app_theme.dart';
 import '../utils/error_display.dart';
 import '../widgets/hero_panel.dart';
@@ -530,11 +531,11 @@ class _StorePageState extends State<StorePage> {
           children: [
             Text(
               title,
-              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+              style: AppText.sectionTitle,
             ),
             Text(
               subtitle,
-              style: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
+              style: AppText.sectionSubtitle,
             ),
           ],
         ),
@@ -598,7 +599,7 @@ class _StorePageState extends State<StorePage> {
               children: [
                 Text(
                   item.name,
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                  style: AppText.cardTitle,
                 ),
                 const SizedBox(height: 5),
                 Wrap(
@@ -613,12 +614,7 @@ class _StorePageState extends State<StorePage> {
                   const SizedBox(height: 6),
                   Text(
                     item.description!,
-                    style: const TextStyle(
-                      color: AppTheme.textMuted,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      height: 1.3,
-                    ),
+                    style: AppText.bodyMuted,
                   ),
                 ],
               ],
@@ -647,7 +643,7 @@ class _StorePageState extends State<StorePage> {
               children: [
                 Text(
                   item.name,
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                  style: AppText.cardTitle,
                 ),
                 const SizedBox(height: 6),
                 Wrap(
@@ -682,11 +678,11 @@ class _StorePageState extends State<StorePage> {
               children: [
                 Text(
                   item.productName,
-                  style: const TextStyle(fontWeight: FontWeight.w700),
+                  style: AppText.cardTitle,
                 ),
                 Text(
                   DateFormat('yyyy-MM-dd HH:mm').format(item.createdAt),
-                  style: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
+                  style: AppText.sectionSubtitle,
                 ),
               ],
             ),
@@ -709,11 +705,7 @@ class _StorePageState extends State<StorePage> {
       decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(999)),
       child: Text(
         text,
-        style: const TextStyle(
-          fontSize: 10.5,
-          fontWeight: FontWeight.w600,
-          color: AppTheme.ink,
-        ),
+        style: AppText.chipText,
       ),
     );
   }

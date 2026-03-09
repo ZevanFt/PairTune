@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../services/account_api_service.dart';
 import '../services/health_api_service.dart';
 import '../ui/app_surface.dart';
+import '../ui/app_text.dart';
 import '../ui/app_theme.dart';
 import '../utils/error_display.dart';
 import '../widgets/hero_panel.dart';
@@ -198,11 +199,11 @@ class _NotificationsPageState extends State<NotificationsPage> {
           children: [
             Text(
               title,
-              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+              style: AppText.sectionTitle,
             ),
             Text(
               subtitle,
-              style: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
+              style: AppText.sectionSubtitle,
             ),
           ],
         ),
@@ -340,22 +341,14 @@ class _NotificationsPageState extends State<NotificationsPage> {
                 const SizedBox(height: 5),
                 Text(
                   notice.body,
-                  style: const TextStyle(
-                    color: AppTheme.textMuted,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    height: 1.35,
-                  ),
+                  style: AppText.bodyMuted.copyWith(fontSize: 13, height: 1.35),
                 ),
                 const SizedBox(height: 6),
                 Row(
                   children: [
                     Text(
                       time,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppTheme.textMuted,
-                      ),
+                      style: AppText.sectionSubtitle,
                     ),
                     const Spacer(),
                     if (notice.isRead)
