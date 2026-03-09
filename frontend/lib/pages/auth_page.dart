@@ -20,15 +20,18 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
   late final TabController _tab = TabController(length: 2, vsync: this);
   final _authApi = AuthApiService();
   final _phone = TextEditingController();
+  final _smsCode = TextEditingController();
   final _password = TextEditingController();
   final _displayName = TextEditingController(text: '新用户');
   final _wechatCode = TextEditingController();
   bool _loading = false;
   String? _error;
+  String? _debugCodeHint;
 
   @override
   void dispose() {
     _phone.dispose();
+    _smsCode.dispose();
     _password.dispose();
     _displayName.dispose();
     _wechatCode.dispose();
@@ -70,6 +73,72 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
       final session = await _authApi.loginWithPhone(
         phone: _phone.text.trim(),
         password: _password.text,
+      );
+      if (!mounted) return;
+      widget.onAuthenticated(session.token);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = formatErrorMessage(e));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _sendCode(String purpose) async {
+    setState(() {
+      _loading = true;
+      _error = null;
+      _debugCodeHint = null;
+    });
+    try {
+      final debugCode = await _authApi.sendPhoneCode(
+        phone: _phone.text.trim(),
+        purpose: purpose,
+      );
+      if (!mounted) return;
+      setState(() => _debugCodeHint = debugCode.isEmpty ? null : debugCode);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('验证码已发送（有效期5分钟）')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = formatErrorMessage(e));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _loginByPhoneCode() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final session = await _authApi.loginWithPhoneCode(
+        phone: _phone.text.trim(),
+        code: _smsCode.text.trim(),
+      );
+      if (!mounted) return;
+      widget.onAuthenticated(session.token);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = formatErrorMessage(e));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _registerByPhoneCode() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final session = await _authApi.registerWithPhoneCode(
+        phone: _phone.text.trim(),
+        code: _smsCode.text.trim(),
+        displayName: _displayName.text.trim(),
+        password: _password.text.trim().isEmpty ? null : _password.text.trim(),
       );
       if (!mounted) return;
       widget.onAuthenticated(session.token);
@@ -159,36 +228,48 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
                   _buildErrorCard(_error!),
                   AppSpace.h8,
                 ],
+                if (_debugCodeHint != null) ...[
+                  _buildCodeHintCard(_debugCodeHint!),
+                  AppSpace.h8,
+                ],
                 SizedBox(
-                  height: 320,
+                  height: 390,
                   child: TabBarView(
                     controller: _tab,
                     children: [
                       _AuthPanel(
                         title: '登录',
-                        subtitle: '可用：手机号登录、微信码登录（占位）',
+                        subtitle: '可用：手机号密码/验证码登录、微信码登录（占位）',
                         primaryLabel: '微信码登录',
-                        secondaryLabel: '手机号登录',
+                        secondaryLabel: '手机号验证码登录',
+                        sendCodeLabel: '发送登录验证码',
                         loading: _loading,
                         phoneController: _phone,
+                        smsCodeController: _smsCode,
                         passwordController: _password,
                         displayNameController: _displayName,
                         wechatCodeController: _wechatCode,
                         onWechat: _loginByWechat,
-                        onPhone: _loginByPhone,
+                        onPhone: _loginByPhoneCode,
+                        onPhonePassword: _loginByPhone,
+                        onSendCode: () => _sendCode('login'),
                       ),
                       _AuthPanel(
                         title: '注册',
-                        subtitle: '可用：手机号注册，注册后自动登录',
+                        subtitle: '可用：手机号验证码注册，支持设置密码',
                         primaryLabel: '微信码注册',
-                        secondaryLabel: '手机号注册',
+                        secondaryLabel: '手机号验证码注册',
+                        sendCodeLabel: '发送注册验证码',
                         loading: _loading,
                         phoneController: _phone,
+                        smsCodeController: _smsCode,
                         passwordController: _password,
                         displayNameController: _displayName,
                         wechatCodeController: _wechatCode,
                         onWechat: _loginByWechat,
-                        onPhone: _registerByPhone,
+                        onPhone: _registerByPhoneCode,
+                        onPhonePassword: _registerByPhone,
+                        onSendCode: () => _sendCode('register'),
                       ),
                     ],
                   ),
@@ -224,6 +305,22 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
       ),
     );
   }
+
+  Widget _buildCodeHintCard(String code) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppTheme.softAmber,
+        border: Border.all(color: AppTheme.warnBorder),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        '开发环境验证码：$code',
+        style: const TextStyle(color: AppTheme.ink, fontSize: 12, fontWeight: FontWeight.w700),
+      ),
+    );
+  }
 }
 
 class _AuthPanel extends StatelessWidget {
@@ -232,26 +329,34 @@ class _AuthPanel extends StatelessWidget {
     required this.subtitle,
     required this.primaryLabel,
     required this.secondaryLabel,
+    required this.sendCodeLabel,
     required this.loading,
     required this.phoneController,
+    required this.smsCodeController,
     required this.passwordController,
     required this.displayNameController,
     required this.wechatCodeController,
     required this.onWechat,
     required this.onPhone,
+    required this.onPhonePassword,
+    required this.onSendCode,
   });
 
   final String title;
   final String subtitle;
   final String primaryLabel;
   final String secondaryLabel;
+  final String sendCodeLabel;
   final bool loading;
   final TextEditingController phoneController;
+  final TextEditingController smsCodeController;
   final TextEditingController passwordController;
   final TextEditingController displayNameController;
   final TextEditingController wechatCodeController;
   final VoidCallback onWechat;
   final VoidCallback onPhone;
+  final VoidCallback onPhonePassword;
+  final VoidCallback onSendCode;
 
   @override
   Widget build(BuildContext context) {
@@ -294,6 +399,27 @@ class _AuthPanel extends StatelessWidget {
             ),
           ),
           AppSpace.h8,
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: smsCodeController,
+                  enabled: !loading,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: '短信验证码',
+                    hintText: '6位验证码',
+                  ),
+                ),
+              ),
+              AppSpace.w8,
+              OutlinedButton(
+                onPressed: loading ? null : onSendCode,
+                child: Text(sendCodeLabel),
+              ),
+            ],
+          ),
+          AppSpace.h8,
           TextField(
             controller: wechatCodeController,
             enabled: !loading,
@@ -318,6 +444,14 @@ class _AuthPanel extends StatelessWidget {
               onPressed: loading ? null : onPhone,
               icon: const Icon(Icons.phone_iphone_rounded),
               label: Text(secondaryLabel),
+            ),
+          ),
+          AppSpace.h8,
+          SizedBox(
+            width: double.infinity,
+            child: TextButton(
+              onPressed: loading ? null : onPhonePassword,
+              child: const Text('使用手机号密码方式'),
             ),
           ),
         ],

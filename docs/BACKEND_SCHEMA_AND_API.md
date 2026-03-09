@@ -166,6 +166,16 @@
 - `POST /auth/login/phone`
   - 入参：`phone/password`
   - 返回：`token/provider/expires_at/user`
+- `POST /auth/phone/send-code`
+  - 入参：`phone/purpose(login|register)`
+  - 限流：同手机号 60 秒内不可重复发码
+  - 过期：验证码 5 分钟有效
+- `POST /auth/login/phone-code`
+  - 入参：`phone/code`
+  - 说明：验证码登录（provider=`phone_code`）
+- `POST /auth/register/phone-code`
+  - 入参：`phone/code/display_name/password?`
+  - 说明：验证码注册成功后直接签发会话
 - `POST /auth/login/wechat`
   - 入参：`wechat_code/display_name`
   - 当前为占位接入：用 `wechat_code` 映射 `wechat_openid`

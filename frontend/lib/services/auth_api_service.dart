@@ -78,6 +78,26 @@ class AuthApiService {
     _ensureOk(resp, path);
   }
 
+  Future<String> sendPhoneCode({
+    required String phone,
+    required String purpose,
+  }) async {
+    const path = '/auth/phone/send-code';
+    final uri = _uri(path);
+    final payload = {'phone': phone, 'purpose': purpose};
+    ApiLogger.request('AuthApi', 'POST', uri, body: jsonEncode(payload));
+    final resp = await _client.post(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(payload),
+    );
+    ApiLogger.response('AuthApi', uri, resp);
+    _ensureOk(resp, path);
+    final data = jsonDecode(resp.body) as Map<String, dynamic>;
+    final result = data['result'] as Map<String, dynamic>;
+    return (result['debug_code'] as String?) ?? '';
+  }
+
   Future<AuthSession> loginWithPhone({
     required String phone,
     required String password,
@@ -116,6 +136,51 @@ class AuthApiService {
     return AuthSession.fromMap((data['result'] as Map<String, dynamic>));
   }
 
+  Future<AuthSession> loginWithPhoneCode({
+    required String phone,
+    required String code,
+  }) async {
+    const path = '/auth/login/phone-code';
+    final uri = _uri(path);
+    final payload = {'phone': phone, 'code': code};
+    ApiLogger.request('AuthApi', 'POST', uri, body: jsonEncode(payload));
+    final resp = await _client.post(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(payload),
+    );
+    ApiLogger.response('AuthApi', uri, resp);
+    _ensureOk(resp, path);
+    final data = jsonDecode(resp.body) as Map<String, dynamic>;
+    return AuthSession.fromMap((data['result'] as Map<String, dynamic>));
+  }
+
+  Future<AuthSession> registerWithPhoneCode({
+    required String phone,
+    required String code,
+    required String displayName,
+    String? password,
+  }) async {
+    const path = '/auth/register/phone-code';
+    final uri = _uri(path);
+    final payload = {
+      'phone': phone,
+      'code': code,
+      'display_name': displayName,
+      'password': password,
+    };
+    ApiLogger.request('AuthApi', 'POST', uri, body: jsonEncode(payload));
+    final resp = await _client.post(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(payload),
+    );
+    ApiLogger.response('AuthApi', uri, resp);
+    _ensureOk(resp, path);
+    final data = jsonDecode(resp.body) as Map<String, dynamic>;
+    return AuthSession.fromMap((data['result'] as Map<String, dynamic>));
+  }
+
   Future<void> logout(String token) async {
     const path = '/auth/logout';
     final uri = _uri(path);
@@ -130,4 +195,3 @@ class AuthApiService {
     _ensureOk(resp, path);
   }
 }
-

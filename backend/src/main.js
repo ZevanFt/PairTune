@@ -42,6 +42,19 @@ function isStrongPassword(value) {
   return String(value || '').trim().length >= 6;
 }
 
+function isValidCode(value) {
+  return /^\d{6}$/.test(String(value || '').trim());
+}
+
+function normalizeAuthPurpose(value) {
+  const raw = String(value || 'login').trim();
+  return raw === 'register' ? 'register' : 'login';
+}
+
+function createPhoneCode() {
+  return String(crypto.randomInt(0, 1000000)).padStart(6, '0');
+}
+
 function ensureSchema() {
   db.exec(`
 CREATE TABLE IF NOT EXISTS tasks (
@@ -143,6 +156,16 @@ CREATE TABLE IF NOT EXISTS auth_sessions (
   expires_at TEXT NOT NULL,
   created_at TEXT NOT NULL,
   last_seen_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS auth_phone_codes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  phone TEXT NOT NULL,
+  code TEXT NOT NULL,
+  purpose TEXT NOT NULL,
+  expires_at TEXT NOT NULL,
+  used_at TEXT,
+  created_at TEXT NOT NULL
 );
 `);
 
@@ -995,6 +1018,164 @@ app.post('/auth/login/wechat', (req, res) => {
       user: {
         id: user.id,
         wechat_openid: user.wechat_openid,
+        display_name: user.display_name,
+        status: user.status,
+      },
+    },
+  });
+});
+
+app.post('/auth/phone/send-code', (req, res) => {
+  const { phone, purpose = 'login' } = req.body || {};
+  const normalizedPhone = String(phone || '').trim();
+  const normalizedPurpose = normalizeAuthPurpose(purpose);
+  if (!isPhone(normalizedPhone)) {
+    return res.status(400).json({ code: 400, message: '手机号格式非法', result: null });
+  }
+
+  const now = Date.now();
+  const recent = db.prepare(
+    `SELECT created_at FROM auth_phone_codes
+     WHERE phone = ? ORDER BY id DESC LIMIT 1`,
+  ).get(normalizedPhone);
+  if (recent) {
+    const diffMs = now - new Date(recent.created_at).getTime();
+    if (diffMs < 60 * 1000) {
+      return res.status(429).json({ code: 429, message: '请求过于频繁，请稍后重试', result: null });
+    }
+  }
+
+  const code = createPhoneCode();
+  const createdAt = new Date(now).toISOString();
+  const expiresAt = new Date(now + 5 * 60 * 1000).toISOString();
+  db.prepare(
+    `INSERT INTO auth_phone_codes(phone, code, purpose, expires_at, used_at, created_at)
+     VALUES (?, ?, ?, ?, NULL, ?)`,
+  ).run(normalizedPhone, code, normalizedPurpose, expiresAt, createdAt);
+
+  // 当前阶段：本地联调用 debug_code 回传；生产应由短信供应商发送且不回传明文验证码。
+  res.json({
+    code: 200,
+    message: '验证码发送成功',
+    result: {
+      phone: normalizedPhone,
+      purpose: normalizedPurpose,
+      expires_at: expiresAt,
+      debug_code: code,
+      ttl_seconds: 300,
+    },
+  });
+});
+
+app.post('/auth/login/phone-code', (req, res) => {
+  const { phone, code } = req.body || {};
+  const normalizedPhone = String(phone || '').trim();
+  const normalizedCode = String(code || '').trim();
+  if (!isPhone(normalizedPhone) || !isValidCode(normalizedCode)) {
+    return res.status(400).json({ code: 400, message: '手机号或验证码格式非法', result: null });
+  }
+
+  const row = db.prepare(
+    `SELECT * FROM auth_phone_codes
+     WHERE phone = ? AND code = ? AND purpose = 'login' AND used_at IS NULL
+     ORDER BY id DESC LIMIT 1`,
+  ).get(normalizedPhone, normalizedCode);
+  if (!row) {
+    return res.status(401).json({ code: 401, message: '验证码错误', result: null });
+  }
+  if (new Date(row.expires_at).getTime() < Date.now()) {
+    return res.status(401).json({ code: 401, message: '验证码已过期', result: null });
+  }
+
+  const user = db.prepare('SELECT * FROM auth_users WHERE phone = ? AND status = ?')
+    .get(normalizedPhone, 'active');
+  if (!user) {
+    return res.status(404).json({ code: 404, message: '手机号未注册', result: null });
+  }
+
+  const now = new Date();
+  const token = createSessionToken();
+  const expires = new Date(now.getTime() + 1000 * 60 * 60 * 24 * 30).toISOString();
+  db.prepare('UPDATE auth_phone_codes SET used_at = ? WHERE id = ?').run(now.toISOString(), row.id);
+  db.prepare(
+    `INSERT INTO auth_sessions(token, user_id, provider, owner_hint, expires_at, created_at, last_seen_at)
+     VALUES (?, ?, 'phone_code', 'me', ?, ?, ?)`,
+  ).run(token, user.id, expires, now.toISOString(), now.toISOString());
+
+  res.json({
+    code: 200,
+    message: '验证码登录成功',
+    result: {
+      token,
+      provider: 'phone_code',
+      expires_at: expires,
+      user: {
+        id: user.id,
+        phone: user.phone,
+        display_name: user.display_name,
+        status: user.status,
+      },
+    },
+  });
+});
+
+app.post('/auth/register/phone-code', (req, res) => {
+  const { phone, code, display_name = '新用户', password = null } = req.body || {};
+  const normalizedPhone = String(phone || '').trim();
+  const normalizedCode = String(code || '').trim();
+  if (!isPhone(normalizedPhone) || !isValidCode(normalizedCode)) {
+    return res.status(400).json({ code: 400, message: '手机号或验证码格式非法', result: null });
+  }
+
+  const exists = db.prepare('SELECT id FROM auth_users WHERE phone = ?').get(normalizedPhone);
+  if (exists) {
+    return res.status(409).json({ code: 409, message: '手机号已注册', result: null });
+  }
+
+  const row = db.prepare(
+    `SELECT * FROM auth_phone_codes
+     WHERE phone = ? AND code = ? AND purpose = 'register' AND used_at IS NULL
+     ORDER BY id DESC LIMIT 1`,
+  ).get(normalizedPhone, normalizedCode);
+  if (!row) {
+    return res.status(401).json({ code: 401, message: '验证码错误', result: null });
+  }
+  if (new Date(row.expires_at).getTime() < Date.now()) {
+    return res.status(401).json({ code: 401, message: '验证码已过期', result: null });
+  }
+
+  const now = new Date();
+  const nowIso = now.toISOString();
+  const info = db.prepare(
+    `INSERT INTO auth_users(phone, password_hash, display_name, status, created_at, updated_at)
+     VALUES (?, ?, ?, 'active', ?, ?)`,
+  ).run(
+    normalizedPhone,
+    isStrongPassword(password) ? hashPassword(password) : null,
+    String(display_name || '新用户').trim(),
+    nowIso,
+    nowIso,
+  );
+  db.prepare('UPDATE auth_phone_codes SET used_at = ? WHERE id = ?').run(nowIso, row.id);
+
+  const user = db.prepare('SELECT * FROM auth_users WHERE id = ?').get(info.lastInsertRowid);
+  const token = createSessionToken();
+  const expires = new Date(now.getTime() + 1000 * 60 * 60 * 24 * 30).toISOString();
+  db.prepare(
+    `INSERT INTO auth_sessions(token, user_id, provider, owner_hint, expires_at, created_at, last_seen_at)
+     VALUES (?, ?, 'phone_code', 'me', ?, ?, ?)`,
+  ).run(token, user.id, expires, nowIso, nowIso);
+
+  res.json({
+    code: 200,
+    message: '验证码注册成功',
+    result: {
+      token,
+      provider: 'phone_code',
+      expires_at: expires,
+      user: {
+        id: user.id,
+        phone: user.phone,
         display_name: user.display_name,
         status: user.status,
       },

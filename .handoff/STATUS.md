@@ -361,6 +361,24 @@ flutter run -d 55c83fe9
 - 验证：
   - `flutter analyze` 通过（No issues found）
   - `node --check backend/src/main.js` 通过
+
+## Codex 第十七轮（2026-03-10）
+- 手机号验证码认证流程落地（后端 + 前端）：
+  - 后端 `main.js` 新增表：`auth_phone_codes`
+  - 新增接口：
+    - `POST /auth/phone/send-code`
+    - `POST /auth/login/phone-code`
+    - `POST /auth/register/phone-code`
+  - 能力包含：60 秒限流、5 分钟过期、验证码一次性使用
+- 前端认证页升级：
+  - `auth_api_service.dart` 新增验证码相关 API
+  - `auth_page.dart` 增加验证码输入、发送验证码、验证码登录/注册流程
+  - 保留手机号密码登录与微信码登录占位能力
+- 文档同步：
+  - `docs/BACKEND_SCHEMA_AND_API.md` 已补充验证码接口说明
+- 验证：
+  - `node --check backend/src/main.js` 通过
+  - `flutter analyze` 通过（No issues found）
   - 保留原有重复任务、周几重复、共同任务字段与保存逻辑
 - 已完成调试页重构：`frontend/lib/pages/debug_page.dart`
   - 顶部诊断 Hero：Base URL / 健康状态 / 日志数
