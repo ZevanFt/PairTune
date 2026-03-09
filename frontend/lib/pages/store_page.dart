@@ -110,66 +110,6 @@ class _StorePageState extends State<StorePage> {
     return Icon(Icons.circle, size: 11, color: color);
   }
 
-  Future<bool?> _showConfirmDialog({
-    required String title,
-    required String message,
-    required String confirmText,
-  }) {
-    return showDialog<bool>(
-      context: context,
-      builder: (context) => _buildDialogShell(
-        title: title,
-        subtitle: '操作后将立即生效',
-        content: Text(
-          message,
-          style: const TextStyle(
-            color: AppTheme.ink,
-            fontWeight: FontWeight.w600,
-            height: 1.4,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(confirmText),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDialogShell({
-    required String title,
-    required String subtitle,
-    required Widget content,
-    required List<Widget> actions,
-  }) {
-    return AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      backgroundColor: const Color(0xFFFFFCF8),
-      titlePadding: const EdgeInsets.fromLTRB(18, 16, 18, 0),
-      contentPadding: const EdgeInsets.fromLTRB(18, 12, 18, 8),
-      actionsPadding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
-      title: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
-          const SizedBox(height: 4),
-          Text(
-            subtitle,
-            style: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
-          ),
-        ],
-      ),
-      content: SingleChildScrollView(child: content),
-      actions: actions,
-    );
-  }
-
   Future<void> _exchange(ProductItem item) async {
     try {
       await _store.exchange(buyer: widget.owner, productId: item.id);
@@ -274,6 +214,74 @@ class _StorePageState extends State<StorePage> {
     await _exchange(item);
   }
 
+  Future<bool> _confirmDelist(ProductItem item) async {
+    final confirmed = await showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: AppTheme.panel,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                '下架商品',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                '下架后该商品将不会出现在兑换区',
+                style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: AppTheme.panelBorder),
+                ),
+                child: Text(
+                  item.name,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.ink,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text('取消'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      child: const Text('确认下架'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    return confirmed == true;
+  }
+
   Future<void> _showCreateProductPage() async {
     final draft = await Navigator.push<ProductDraft>(
       context,
@@ -336,12 +344,8 @@ class _StorePageState extends State<StorePage> {
   }
 
   Future<void> _delistProduct(ProductItem item) async {
-    final confirmed = await _showConfirmDialog(
-      title: '下架商品',
-      message: '确认下架「${item.name}」吗？',
-      confirmText: '确认下架',
-    );
-    if (confirmed != true) return;
+    final confirmed = await _confirmDelist(item);
+    if (!confirmed) return;
 
     try {
       await _store.deleteProduct(id: item.id, owner: widget.owner);
