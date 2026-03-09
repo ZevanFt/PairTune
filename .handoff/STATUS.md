@@ -288,6 +288,16 @@ flutter run -d 55c83fe9
   - `frontend/lib/pages/profile_page.dart`
 - 本轮效果：后续若要调整卡片“厚薄感/透明度/阴影”，只需改一处样式文件
 - 验证：`flutter analyze` 通过（No issues found）
+
+## Codex UI 第十二轮优化（2026-03-10）
+- 交互反馈统一：`frontend/lib/ui/app_theme.dart`
+  - 新增交互 token：`motionFast` 与统一 overlay 规则
+  - 统一 TextButton / IconButton / OutlinedButton 按压反馈与动画时长
+  - 统一 ListTile 与 Switch 的交互色，减少页面间“手感漂移”
+- 页面点击反馈补齐：
+  - `frontend/lib/main.dart` 模式选择卡补充按压 overlay
+  - `frontend/lib/pages/home_page.dart` 象限卡与任务卡补充统一按压 overlay
+- 验证：`flutter analyze` 通过（No issues found）
   - 保留原有重复任务、周几重复、共同任务字段与保存逻辑
 - 已完成调试页重构：`frontend/lib/pages/debug_page.dart`
   - 顶部诊断 Hero：Base URL / 健康状态 / 日志数

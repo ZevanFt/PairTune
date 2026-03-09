@@ -32,6 +32,22 @@ class AppTheme {
   static const Color heroStart = Color(0xFF1A2B4F);
   static const Color heroMid = Color(0xFF314772);
   static const Color heroEnd = Color(0xFF3C5484);
+  static const Duration motionFast = Duration(milliseconds: 180);
+
+  static WidgetStateProperty<Color?> _overlay(Color color, [double alpha = 0.08]) {
+    return WidgetStateProperty.resolveWith((states) {
+      if (states.contains(WidgetState.pressed)) {
+        return color.withValues(alpha: alpha);
+      }
+      if (states.contains(WidgetState.hovered)) {
+        return color.withValues(alpha: alpha * 0.7);
+      }
+      if (states.contains(WidgetState.focused)) {
+        return color.withValues(alpha: alpha * 0.5);
+      }
+      return null;
+    });
+  }
 
   static ThemeData light() {
     final scheme = ColorScheme.fromSeed(
@@ -49,6 +65,7 @@ class AppTheme {
 
     return base.copyWith(
       scaffoldBackgroundColor: paper,
+      splashFactory: InkRipple.splashFactory,
       appBarTheme: const AppBarTheme(
         backgroundColor: Colors.transparent,
         foregroundColor: ink,
@@ -84,6 +101,52 @@ class AppTheme {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           textStyle: const TextStyle(fontWeight: FontWeight.w700),
         ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: ButtonStyle(
+          overlayColor: _overlay(primary),
+          foregroundColor: const WidgetStatePropertyAll(primary),
+          animationDuration: motionFast,
+          textStyle: const WidgetStatePropertyAll(
+            TextStyle(fontWeight: FontWeight.w700),
+          ),
+        ),
+      ),
+      iconButtonTheme: IconButtonThemeData(
+        style: ButtonStyle(
+          overlayColor: _overlay(primary, 0.1),
+          foregroundColor: const WidgetStatePropertyAll(primary),
+          animationDuration: motionFast,
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: ButtonStyle(
+          overlayColor: _overlay(primary),
+          animationDuration: motionFast,
+          side: const WidgetStatePropertyAll(BorderSide(color: border)),
+          shape: WidgetStatePropertyAll(
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        ),
+      ),
+      listTileTheme: const ListTileThemeData(
+        iconColor: primary,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(12)),
+        ),
+      ),
+      switchTheme: SwitchThemeData(
+        overlayColor: _overlay(primary),
+        trackColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return primary.withValues(alpha: 0.45);
+          }
+          return border;
+        }),
+        thumbColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) return primary;
+          return Colors.white;
+        }),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,

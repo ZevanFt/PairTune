@@ -175,6 +175,12 @@ class _ModeSelectPage extends StatelessWidget {
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(18),
+        overlayColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.pressed)) {
+            return AppTheme.primary.withValues(alpha: 0.08);
+          }
+          return null;
+        }),
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.all(14),

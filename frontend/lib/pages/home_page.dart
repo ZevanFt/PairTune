@@ -601,6 +601,12 @@ class _HomePageState extends State<HomePage> {
   ) {
     return InkWell(
       borderRadius: BorderRadius.circular(16),
+      overlayColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.pressed)) {
+          return accent.withValues(alpha: 0.08);
+        }
+        return null;
+      }),
       onTap: () => _addTask(quadrant),
       child: Container(
         padding: const EdgeInsets.all(14),
@@ -678,6 +684,12 @@ class _HomePageState extends State<HomePage> {
       decoration: AppSurface.card(alpha: 0.92),
       child: InkWell(
         borderRadius: AppSurface.cardRadius,
+        overlayColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.pressed)) {
+            return AppTheme.primary.withValues(alpha: 0.06);
+          }
+          return null;
+        }),
         onTap: () => _editTask(task),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
