@@ -281,20 +281,20 @@ class _ProfilePageState extends State<ProfilePage> {
     return Row(
       children: [
         Container(
-          width: 4,
-          height: 28,
+          width: 8,
+          height: 8,
           decoration: BoxDecoration(
             color: AppTheme.blush,
             borderRadius: BorderRadius.circular(999),
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 10),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               title,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
             ),
             Text(
               subtitle,
@@ -314,16 +314,60 @@ class _ProfilePageState extends State<ProfilePage> {
   }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
       decoration: BoxDecoration(
         color: AppTheme.panel.withValues(alpha: 0.94),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppTheme.panelBorder),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0F1F2E48),
+            blurRadius: 10,
+            offset: Offset(0, 4),
+          ),
+        ],
       ),
-      child: SwitchListTile(
-        value: value,
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
-        subtitle: Text(subtitle),
-        onChanged: onChanged,
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: AppTheme.softBlue,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              value ? Icons.toggle_on_rounded : Icons.toggle_off_rounded,
+              color: AppTheme.primary,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppTheme.textMuted,
+                    fontWeight: FontWeight.w600,
+                    height: 1.3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Switch(
+            value: value,
+            onChanged: onChanged,
+          ),
+        ],
       ),
     );
   }
@@ -340,6 +384,13 @@ class _ProfilePageState extends State<ProfilePage> {
         color: AppTheme.panel.withValues(alpha: 0.94),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppTheme.panelBorder),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0F1F2E48),
+            blurRadius: 10,
+            offset: Offset(0, 4),
+          ),
+        ],
       ),
       child: ListTile(
         leading: Container(
@@ -352,7 +403,15 @@ class _ProfilePageState extends State<ProfilePage> {
           child: Icon(icon, color: AppTheme.primary),
         ),
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
-        subtitle: Text(subtitle),
+        subtitle: Text(
+          subtitle,
+          style: const TextStyle(
+            fontSize: 12,
+            color: AppTheme.textMuted,
+            fontWeight: FontWeight.w600,
+            height: 1.3,
+          ),
+        ),
         trailing: const Icon(Icons.chevron_right_rounded),
         onTap: onTap,
       ),

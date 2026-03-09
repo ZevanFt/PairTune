@@ -268,6 +268,14 @@ flutter run -d 55c83fe9
   - 未读操作由“图标+文字按钮”改为轻量图标动作
   - 已读状态图标尺寸与信息密度统一
 - 验证：`flutter analyze` 通过（No issues found）
+
+## Codex UI 第十轮优化（2026-03-10）
+- 个人中心细节收敛：`frontend/lib/pages/profile_page.dart`
+  - 分区标题改为小圆点标识，和首页/商城/通知统一
+  - 开关项由 `SwitchListTile` 改为自定义轻量布局，降低原生感
+  - 条目卡与开关卡统一轻阴影与文本层级，信息密度更一致
+  - 副标题文本统一为低噪声样式（字号/字重/行高）
+- 验证：`flutter analyze` 通过（No issues found）
   - 保留原有重复任务、周几重复、共同任务字段与保存逻辑
 - 已完成调试页重构：`frontend/lib/pages/debug_page.dart`
   - 顶部诊断 Hero：Base URL / 健康状态 / 日志数
