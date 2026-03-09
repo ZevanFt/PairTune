@@ -150,10 +150,9 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget build(BuildContext context) {
     final profile = _profile;
     final settings = _settings;
-    final ownerName = widget.owner == 'me' ? '我' : '搭档';
 
     return Scaffold(
-      appBar: AppBar(title: _buildTitleWithHealth('我的 · $ownerName')),
+      appBar: AppBar(title: _buildTitleWithHealth('个人中心')),
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
