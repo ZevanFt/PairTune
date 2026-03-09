@@ -226,87 +226,48 @@ class _BrandBottomBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final items = const [
-      (Icons.check_circle_outline_rounded, '任务'),
-      (Icons.storefront_rounded, '商城'),
-      (Icons.notifications_none_rounded, '通知'),
-      (Icons.person_outline_rounded, '我的'),
-    ];
-
-    return SafeArea(
-      top: false,
-      child: Container(
-        margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
-        decoration: BoxDecoration(
-          color: AppTheme.panel.withValues(alpha: 0.95),
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: AppTheme.panelBorder),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x1A1D2A44),
-              blurRadius: 14,
-              offset: Offset(0, 6),
-            ),
-          ],
-        ),
-        child: Row(
-          children: List.generate(items.length, (i) {
-            final selected = i == index;
-            return Expanded(
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(14),
-                  onTap: () => onChanged(i),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 220),
-                    curve: Curves.easeOutCubic,
-                    padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 4),
-                    decoration: BoxDecoration(
-                      color: selected ? AppTheme.softBlue : Colors.transparent,
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        AnimatedContainer(
-                          duration: const Duration(milliseconds: 220),
-                          margin: const EdgeInsets.only(bottom: 5),
-                          height: 2.5,
-                          width: selected ? 22 : 0,
-                          decoration: BoxDecoration(
-                            color: AppTheme.primary,
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                        ),
-                        Icon(
-                          items[i].$1,
-                          size: selected ? 22 : 21,
-                          color: selected
-                              ? AppTheme.primary
-                              : AppTheme.textMuted,
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          items[i].$2,
-                          style: TextStyle(
-                            fontSize: 11.5,
-                            letterSpacing: 0.15,
-                            fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-                            color: selected
-                                ? AppTheme.primary
-                                : AppTheme.textMuted,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            );
-          }),
-        ),
+    return NavigationBarTheme(
+      data: NavigationBarThemeData(
+        backgroundColor: AppTheme.panel,
+        indicatorColor: Colors.transparent,
+        iconTheme: WidgetStateProperty.resolveWith((states) {
+          final selected = states.contains(WidgetState.selected);
+          return IconThemeData(
+            size: 22,
+            color: selected ? AppTheme.primary : AppTheme.textMuted,
+          );
+        }),
+        labelTextStyle: WidgetStateProperty.resolveWith((states) {
+          final selected = states.contains(WidgetState.selected);
+          return TextStyle(
+            fontSize: 12,
+            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+            color: selected ? AppTheme.primary : AppTheme.textMuted,
+          );
+        }),
+      ),
+      child: NavigationBar(
+        selectedIndex: index,
+        height: 66,
+        onDestinationSelected: onChanged,
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.check_circle_outline_rounded),
+            label: '任务',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.storefront_rounded),
+            label: '商城',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.notifications_none_rounded),
+            label: '通知',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.person_outline_rounded),
+            label: '我的',
+          ),
+        ],
       ),
     );
   }

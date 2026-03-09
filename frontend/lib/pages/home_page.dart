@@ -243,6 +243,12 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(
         title: _buildTitleWithHealth(widget.duoEnabled ? '要事第一' : '单人任务'),
         actions: [
+          TextButton.icon(
+            onPressed: _addTask,
+            icon: const Icon(Icons.add_rounded, size: 18),
+            label: const Text('新建'),
+          ),
+          const SizedBox(width: 4),
           if (widget.duoEnabled)
             Padding(
               padding: const EdgeInsets.only(right: 12),
@@ -259,11 +265,6 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _addTask,
-        label: const Text('新建任务'),
-        icon: const Icon(Icons.add_rounded),
       ),
       body: Container(
         decoration: const BoxDecoration(

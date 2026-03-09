@@ -90,7 +90,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 8),
-            child: FilledButton.tonal(
+            child: TextButton(
               onPressed: _markAllRead,
               child: const Text('全部已读'),
             ),
