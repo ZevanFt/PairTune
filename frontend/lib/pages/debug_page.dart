@@ -92,22 +92,22 @@ class _DebugPageState extends State<DebugPage> {
   Widget _buildHero(String healthText, bool online) {
     final statusColor = _healthStatus == null
         ? Colors.white70
-        : (online ? const Color(0xFFBDF5D6) : const Color(0xFFFFD3D3));
+        : (online ? AppTheme.success : AppTheme.danger);
 
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(22),
         gradient: const LinearGradient(
-          colors: [Color(0xFF17284A), Color(0xFF314772), Color(0xFF3C527F)],
+          colors: [AppTheme.heroStart, AppTheme.heroMid, AppTheme.heroEnd],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x2A273C63),
-            blurRadius: 22,
-            offset: Offset(0, 10),
+            color: Color(0x1F243355),
+            blurRadius: 18,
+            offset: Offset(0, 8),
           ),
         ],
       ),
@@ -227,7 +227,7 @@ class _DebugPageState extends State<DebugPage> {
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.92),
+        color: AppTheme.panel.withValues(alpha: 0.94),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppTheme.panelBorder),
       ),
@@ -264,7 +264,7 @@ class _DebugPageState extends State<DebugPage> {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.88),
+        color: AppTheme.panel.withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppTheme.panelBorder),
       ),
@@ -287,7 +287,7 @@ class _DebugPageState extends State<DebugPage> {
       decoration: BoxDecoration(
         color: isError
             ? AppTheme.errorBg.withValues(alpha: 0.92)
-            : Colors.white.withValues(alpha: 0.9),
+            : AppTheme.panel.withValues(alpha: 0.92),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: isError ? AppTheme.errorBorder : AppTheme.panelBorder,
