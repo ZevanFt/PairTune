@@ -188,6 +188,92 @@ class _StorePageState extends State<StorePage> {
     }
   }
 
+  Future<bool> _confirmExchange(ProductItem item) async {
+    final confirmed = await showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: AppTheme.panel,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                '确认兑换',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                '请确认商品与积分信息',
+                style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: AppTheme.panelBorder),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.name,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      children: [
+                        _metaChip('消耗 ${item.pointsCost} 积分', AppTheme.softAmber),
+                        _metaChip('库存 ${item.stock}', AppTheme.softBlue),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text('取消'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      child: const Text('确认兑换'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    return confirmed == true;
+  }
+
+  Future<void> _confirmAndExchange(ProductItem item) async {
+    final confirmed = await _confirmExchange(item);
+    if (!confirmed) return;
+    await _exchange(item);
+  }
+
   Future<void> _showCreateProductPage() async {
     final draft = await Navigator.push<ProductDraft>(
       context,
@@ -599,7 +685,7 @@ class _StorePageState extends State<StorePage> {
           ),
           const SizedBox(width: 10),
           FilledButton.tonal(
-            onPressed: item.stock <= 0 ? null : () => _exchange(item),
+            onPressed: item.stock <= 0 ? null : () => _confirmAndExchange(item),
             child: Text(item.stock <= 0 ? '已售罄' : '兑换'),
           ),
         ],
