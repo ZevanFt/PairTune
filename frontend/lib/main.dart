@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'pages/auth_page.dart';
 import 'pages/home_page.dart';
 import 'pages/notifications_page.dart';
 import 'pages/profile_page.dart';
@@ -35,10 +36,17 @@ class _RootPage extends StatefulWidget {
 class _RootPageState extends State<_RootPage> {
   int _index = 0;
   String _owner = 'me';
+  bool _authed = false;
   bool? _duoEnabled;
 
   @override
   Widget build(BuildContext context) {
+    if (!_authed) {
+      return AuthPage(
+        onAuthenticated: () => setState(() => _authed = true),
+      );
+    }
+
     if (_duoEnabled == null) {
       return _ModeSelectPage(
         onSelected: (duoEnabled) {

@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
-
 import '../services/health_api_service.dart';
 import '../services/store_api_service.dart';
 import '../ui/app_surface.dart';
@@ -11,6 +9,8 @@ import '../utils/error_display.dart';
 import '../widgets/hero_panel.dart';
 import '../widgets/shimmer_block.dart';
 import 'product_form_page.dart';
+import 'store_my_products_page.dart';
+import 'store_owned_records_page.dart';
 
 class StorePage extends StatefulWidget {
   const StorePage({
@@ -38,8 +38,6 @@ class _StorePageState extends State<StorePage> {
 
   int _points = 0;
   List<ProductItem> _market = [];
-  List<ProductItem> _mine = [];
-  List<OwnedItem> _owned = [];
 
   @override
   void initState() {
@@ -57,7 +55,7 @@ class _StorePageState extends State<StorePage> {
 
   Future<void> _load() async {
     setState(() {
-      if (_market.isEmpty && _mine.isEmpty && _owned.isEmpty) {
+      if (_market.isEmpty) {
         _loading = true;
       } else {
         _refreshing = true;
@@ -69,15 +67,11 @@ class _StorePageState extends State<StorePage> {
       final results = await Future.wait([
         _store.getPoints(widget.owner),
         _store.listMarketProducts(widget.owner),
-        _store.listMyProducts(widget.owner),
-        _store.listOwnedItems(widget.owner),
       ]);
 
       setState(() {
         _points = results[0] as int;
         _market = results[1] as List<ProductItem>;
-        _mine = results[2] as List<ProductItem>;
-        _owned = results[3] as List<OwnedItem>;
       });
     } catch (e) {
       setState(() => _error = formatErrorMessage(e));
@@ -108,7 +102,7 @@ class _StorePageState extends State<StorePage> {
     final status = _healthStatus;
     final online = status?.online == true;
     final color = status == null
-        ? Colors.grey
+        ? AppTheme.neutral
         : (online ? AppTheme.success : AppTheme.danger);
 
     return Icon(Icons.circle, size: 11, color: color);
@@ -218,74 +212,6 @@ class _StorePageState extends State<StorePage> {
     await _exchange(item);
   }
 
-  Future<bool> _confirmDelist(ProductItem item) async {
-    final confirmed = await showModalBottomSheet<bool>(
-      context: context,
-      backgroundColor: AppTheme.panel,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-      ),
-      builder: (context) => Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-        child: SafeArea(
-          top: false,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                '下架商品',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-              ),
-              const SizedBox(height: 4),
-              const Text(
-                '下架后该商品将不会出现在兑换区',
-                style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
-              ),
-              const SizedBox(height: 12),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: AppTheme.panelBorder),
-                ),
-                child: Text(
-                  item.name,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: AppTheme.ink,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.pop(context, false),
-                      child: const Text('取消'),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: FilledButton(
-                      onPressed: () => Navigator.pop(context, true),
-                      child: const Text('确认下架'),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-    return confirmed == true;
-  }
-
   Future<void> _showCreateProductPage() async {
     final draft = await Navigator.push<ProductDraft>(
       context,
@@ -316,58 +242,6 @@ class _StorePageState extends State<StorePage> {
     }
   }
 
-  Future<void> _showEditProductPage(ProductItem item) async {
-    final draft = await Navigator.push<ProductDraft>(
-      context,
-      MaterialPageRoute(builder: (_) => ProductFormPage(initial: item)),
-    );
-    if (draft == null) return;
-
-    try {
-      await _store.updateProduct(
-        id: item.id,
-        owner: widget.owner,
-        name: draft.name,
-        description: draft.description,
-        pointsCost: draft.pointsCost,
-        stock: draft.stock,
-      );
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('商品更新成功')));
-      }
-      await _load();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('商品更新失败：${formatErrorMessage(e)}')),
-        );
-      }
-    }
-  }
-
-  Future<void> _delistProduct(ProductItem item) async {
-    final confirmed = await _confirmDelist(item);
-    if (!confirmed) return;
-
-    try {
-      await _store.deleteProduct(id: item.id, owner: widget.owner);
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('商品已下架')));
-      }
-      await _load();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('下架失败：${formatErrorMessage(e)}')),
-        );
-      }
-    }
-  }
-
   Future<void> _exportSnapshot() async {
     try {
       final snapshot = await _store.exportSnapshot();
@@ -389,6 +263,26 @@ class _StorePageState extends State<StorePage> {
     }
   }
 
+  Future<void> _openMyProductsPage() async {
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => StoreMyProductsPage(owner: widget.owner),
+      ),
+    );
+    await _load();
+  }
+
+  Future<void> _openOwnedRecordsPage() async {
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => StoreOwnedRecordsPage(owner: widget.owner),
+      ),
+    );
+    await _load();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -399,6 +293,16 @@ class _StorePageState extends State<StorePage> {
             onPressed: _showCreateProductPage,
             icon: const Icon(Icons.add_rounded, size: 18),
             label: const Text('发布'),
+          ),
+          IconButton(
+            tooltip: '我发布的商品',
+            onPressed: _openMyProductsPage,
+            icon: const Icon(Icons.inventory_2_outlined),
+          ),
+          IconButton(
+            tooltip: '兑换记录',
+            onPressed: _openOwnedRecordsPage,
+            icon: const Icon(Icons.history_rounded),
           ),
           IconButton(
             tooltip: '导出快照',
@@ -461,24 +365,6 @@ class _StorePageState extends State<StorePage> {
                 ],
               ] else
                 _buildEmptyCard('单人模式下暂不开放双人兑换，邀请搭档后即可双向兑换。'),
-              AppSpace.h16,
-              _buildSectionHeader('我发布的商品', '维护商品并管理上架状态'),
-              AppSpace.h8,
-              if (_loading && _mine.isEmpty)
-                ..._buildListSkeletons()
-              else ...[
-                ..._mine.map(_buildMyProductItem),
-                if (_mine.isEmpty) _buildEmptyCard('你还没发布商品'),
-              ],
-              AppSpace.h16,
-              _buildSectionHeader('已兑换记录', '追踪每一次积分兑换'),
-              AppSpace.h8,
-              if (_loading && _owned.isEmpty)
-                ..._buildListSkeletons()
-              else ...[
-                ..._owned.map(_buildOwnedItem),
-                if (_owned.isEmpty) _buildEmptyCard('暂无兑换记录'),
-              ],
               AppSpace.h24,
             ],
           ),
@@ -631,75 +517,6 @@ class _StorePageState extends State<StorePage> {
     );
   }
 
-  Widget _buildMyProductItem(ProductItem item) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(12),
-      decoration: AppSurface.card(),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  item.name,
-                  style: AppText.cardTitle,
-                ),
-                const SizedBox(height: 6),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: [
-                    _metaChip('库存 ${item.stock}', AppTheme.softBlue),
-                    _metaChip('${item.pointsCost} 积分', AppTheme.softAmber),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          _productMoreMenu(item),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildOwnedItem(OwnedItem item) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: AppSurface.subtleCard(shadow: true),
-      child: Row(
-        children: [
-          const Icon(Icons.history_rounded, color: AppTheme.primary, size: 18),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  item.productName,
-                  style: AppText.cardTitle,
-                ),
-                Text(
-                  DateFormat('yyyy-MM-dd HH:mm').format(item.createdAt),
-                  style: AppText.sectionSubtitle,
-                ),
-              ],
-            ),
-          ),
-          Text(
-            '-${item.pointsSpent}',
-            style: const TextStyle(
-              color: AppTheme.danger,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _metaChip(String text, Color bg) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
@@ -711,35 +528,4 @@ class _StorePageState extends State<StorePage> {
     );
   }
 
-  Widget _productMoreMenu(ProductItem item) {
-    return PopupMenuButton<String>(
-      tooltip: '更多操作',
-      icon: const Icon(Icons.more_horiz_rounded, size: 20),
-      onSelected: (value) {
-        if (value == 'edit') {
-          _showEditProductPage(item);
-        } else if (value == 'delist') {
-          _delistProduct(item);
-        }
-      },
-      itemBuilder: (context) => const [
-        PopupMenuItem<String>(
-          value: 'edit',
-          child: ListTile(
-            dense: true,
-            leading: Icon(Icons.edit_outlined, size: 18),
-            title: Text('编辑商品'),
-          ),
-        ),
-        PopupMenuItem<String>(
-          value: 'delist',
-          child: ListTile(
-            dense: true,
-            leading: Icon(Icons.delete_outline, size: 18),
-            title: Text('下架商品'),
-          ),
-        ),
-      ],
-    );
-  }
 }

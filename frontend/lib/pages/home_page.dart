@@ -336,7 +336,7 @@ class _HomePageState extends State<HomePage> {
     final status = _healthStatus;
     final online = status?.online == true;
     final color = status == null
-        ? Colors.grey
+        ? AppTheme.neutral
         : (online ? AppTheme.success : AppTheme.danger);
 
     return Icon(

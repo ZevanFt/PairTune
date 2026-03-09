@@ -10,6 +10,7 @@ import '../utils/error_display.dart';
 import '../widgets/hero_panel.dart';
 import 'debug_page.dart';
 import 'edit_display_name_page.dart';
+import 'settings_detail_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({
@@ -185,7 +186,21 @@ class _ProfilePageState extends State<ProfilePage> {
                 profile?.displayName ?? '加载中...',
                 onTap: _loading ? null : _editDisplayName,
               ),
-              _buildItem(Icons.people_alt_rounded, '关系管理', '对象/闺蜜/室友/搭子'),
+              _buildItem(
+                Icons.people_alt_rounded,
+                '关系管理',
+                '对象/闺蜜/室友/搭子',
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const SettingsDetailPage(
+                      title: '关系管理',
+                      subtitle: '维护你和搭档的协作关系标签与默认展示信息',
+                      items: ['关系标签管理', '搭档邀请与解绑', '协作权限设置'],
+                    ),
+                  ),
+                ),
+              ),
               _buildSwitchCard(
                 value: widget.duoEnabled,
                 title: '双人协作模式',
@@ -195,7 +210,21 @@ class _ProfilePageState extends State<ProfilePage> {
               AppSpace.h12,
               _buildSectionTitle('账号与通知', '管理账号安全并调整消息提醒'),
               AppSpace.h8,
-              _buildItem(Icons.security_rounded, '账号安全', '手机号/邮箱/登录方式'),
+              _buildItem(
+                Icons.security_rounded,
+                '账号安全',
+                '手机号/邮箱/登录方式',
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const SettingsDetailPage(
+                      title: '账号安全',
+                      subtitle: '登录方式与账号安全能力会逐步接入（手机号/微信）',
+                      items: ['绑定手机号（待接入）', '微信登录（待接入）', '设备管理与安全日志'],
+                    ),
+                  ),
+                ),
+              ),
               _buildSwitchCard(
                 value: settings?.notificationsEnabled ?? true,
                 title: '通知开关',
@@ -205,7 +234,21 @@ class _ProfilePageState extends State<ProfilePage> {
               AppSpace.h12,
               _buildSectionTitle('支持与隐私', '反馈问题并管理隐私数据'),
               AppSpace.h8,
-              _buildItem(Icons.feedback_rounded, '帮助与反馈', '问题反馈与产品建议'),
+              _buildItem(
+                Icons.feedback_rounded,
+                '帮助与反馈',
+                '问题反馈与产品建议',
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const SettingsDetailPage(
+                      title: '帮助与反馈',
+                      subtitle: '集中查看常见问题，并把建议直接反馈给我们',
+                      items: ['常见问题 FAQ', '问题反馈', '功能建议'],
+                    ),
+                  ),
+                ),
+              ),
               _buildItem(
                 Icons.bug_report_outlined,
                 '调试页面',
@@ -217,12 +260,26 @@ class _ProfilePageState extends State<ProfilePage> {
                   );
                 },
               ),
-              _buildItem(Icons.privacy_tip_rounded, '隐私与数据', '导出数据、账号注销'),
+              _buildItem(
+                Icons.privacy_tip_rounded,
+                '隐私与数据',
+                '导出数据、账号注销',
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const SettingsDetailPage(
+                      title: '隐私与数据',
+                      subtitle: '管理个人数据、导出记录与账号生命周期',
+                      items: ['数据导出', '隐私政策', '账号注销流程'],
+                    ),
+                  ),
+                ),
+              ),
               const SizedBox(height: AppSpace.lg + 2),
               Text(
                 '合拍 PairTune · v1.0.0',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                style: const TextStyle(color: AppTheme.neutralStrong, fontSize: 12),
               ),
             ],
           ),
@@ -246,7 +303,7 @@ class _ProfilePageState extends State<ProfilePage> {
     final status = _healthStatus;
     final online = status?.online == true;
     final color = status == null
-        ? Colors.grey
+        ? AppTheme.neutral
         : (online ? AppTheme.success : AppTheme.danger);
     return Icon(Icons.circle, size: 11, color: color);
   }

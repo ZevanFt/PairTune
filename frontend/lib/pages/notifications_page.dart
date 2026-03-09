@@ -158,7 +158,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
     final status = _healthStatus;
     final online = status?.online == true;
     final color = status == null
-        ? Colors.grey
+        ? AppTheme.neutral
         : (online ? AppTheme.success : AppTheme.danger);
     return Icon(Icons.circle, size: 11, color: color);
   }
@@ -314,7 +314,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                           fontWeight: FontWeight.w700,
                           fontSize: 15,
                           color: notice.isRead
-                              ? Colors.grey.shade700
+                              ? AppTheme.neutralStrong
                               : AppTheme.ink,
                         ),
                       ),

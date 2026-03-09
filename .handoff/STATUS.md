@@ -320,6 +320,25 @@ flutter run -d 55c83fe9
   - `frontend/lib/pages/profile_page.dart`
 - 本轮效果：页面内边距、分区间距与标题间距来源统一，后续调节节奏可集中修改
 - 验证：`flutter analyze` 通过（No issues found）
+
+## Codex UI 第十五轮优化（2026-03-10）
+- 商城结构调整（按产品方向重构）：
+  - `frontend/lib/pages/store_page.dart` 改为“余额 + 商城列表”的主页面形态
+  - “我发布的商品 / 兑换记录”从主页面拆分为子页面入口（AppBar）
+  - 新增：
+    - `frontend/lib/pages/store_my_products_page.dart`
+    - `frontend/lib/pages/store_owned_records_page.dart`
+- 个人中心子页面补齐：
+  - 新增通用设置详情页：`frontend/lib/pages/settings_detail_page.dart`
+  - `profile_page.dart` 中关系管理/账号安全/帮助反馈/隐私数据已接入子页面跳转
+- 登录与注册壳页面：
+  - 新增 `frontend/lib/pages/auth_page.dart`
+  - `main.dart` 加入认证前置流程（先登录/注册，再进入模式选择）
+  - 当前为前端壳，预留“微信/手机号”后续真实接入
+- 颜色收口：
+  - `app_theme.dart` 新增中性色 token（`neutral`/`neutralStrong`）
+  - 主页面健康点与灰色文字改为 token，减少硬编码灰色
+- 验证：`flutter analyze` 通过（No issues found）
   - 保留原有重复任务、周几重复、共同任务字段与保存逻辑
 - 已完成调试页重构：`frontend/lib/pages/debug_page.dart`
   - 顶部诊断 Hero：Base URL / 健康状态 / 日志数

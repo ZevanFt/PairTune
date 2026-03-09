@@ -4,6 +4,8 @@ class AppTheme {
   static const Color primary = Color(0xFF253B6E);
   static const Color ink = Color(0xFF16213A);
   static const Color textMuted = Color(0xFF6F7890);
+  static const Color neutral = Color(0xFF8A93A8);
+  static const Color neutralStrong = Color(0xFF5A647A);
   static const Color blush = Color(0xFF4E6EA8);
   static const Color peach = Color(0xFFFFE7D1);
   static const Color mint = Color(0xFFDDF7EA);
