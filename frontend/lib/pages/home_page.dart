@@ -383,7 +383,7 @@ class _HomePageState extends State<HomePage> {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
         gradient: const LinearGradient(
-          colors: [Color(0xFF17284A), Color(0xFF314772), Color(0xFF3B4F7E)],
+          colors: [AppTheme.heroStart, AppTheme.heroMid, AppTheme.heroEnd],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -446,14 +446,12 @@ class _HomePageState extends State<HomePage> {
                 icon: Icons.bolt_rounded,
                 label: '进行中',
                 value: '$activeCount',
-                bg: AppTheme.mint,
               ),
               const SizedBox(width: 10),
               _heroMetric(
                 icon: Icons.check_circle_rounded,
                 label: '已完成',
                 value: '$doneCount',
-                bg: AppTheme.peach,
               ),
             ],
           ),
@@ -466,18 +464,17 @@ class _HomePageState extends State<HomePage> {
     required IconData icon,
     required String label,
     required String value,
-    required Color bg,
   }) {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
         decoration: BoxDecoration(
-          color: bg,
+          color: Colors.white.withValues(alpha: 0.16),
           borderRadius: BorderRadius.circular(14),
         ),
         child: Row(
           children: [
-            Icon(icon, size: 18, color: AppTheme.ink),
+            Icon(icon, size: 18, color: Colors.white),
             const SizedBox(width: 8),
             Expanded(
               child: Column(
@@ -485,7 +482,7 @@ class _HomePageState extends State<HomePage> {
                 children: [
                   Text(
                     label,
-                    style: const TextStyle(fontSize: 12, color: AppTheme.ink),
+                    style: const TextStyle(fontSize: 12, color: Colors.white70),
                   ),
                   const SizedBox(height: 2),
                   Text(
@@ -493,7 +490,7 @@ class _HomePageState extends State<HomePage> {
                     style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w800,
-                      color: AppTheme.ink,
+                      color: Colors.white,
                     ),
                   ),
                 ],
@@ -510,26 +507,26 @@ class _HomePageState extends State<HomePage> {
       (
         q: TaskQuadrant.importantUrgent,
         icon: Icons.local_fire_department_rounded,
-        bg: const Color(0xFFFFEDEE),
-        accent: const Color(0xFFD85151),
+        bg: AppTheme.panel.withValues(alpha: 0.95),
+        accent: const Color(0xFF2A3E6E),
       ),
       (
         q: TaskQuadrant.importantNotUrgent,
         icon: Icons.lightbulb_rounded,
-        bg: const Color(0xFFEAF7EE),
-        accent: const Color(0xFF2F8A56),
+        bg: AppTheme.panel.withValues(alpha: 0.95),
+        accent: const Color(0xFF3F568A),
       ),
       (
         q: TaskQuadrant.notImportantUrgent,
         icon: Icons.flash_on_rounded,
-        bg: const Color(0xFFFFF4E7),
-        accent: const Color(0xFFCC7B19),
+        bg: AppTheme.panel.withValues(alpha: 0.95),
+        accent: const Color(0xFF5E6D95),
       ),
       (
         q: TaskQuadrant.notImportantNotUrgent,
         icon: Icons.spa_rounded,
-        bg: const Color(0xFFEAF3FF),
-        accent: const Color(0xFF2E66B8),
+        bg: AppTheme.panel.withValues(alpha: 0.95),
+        accent: const Color(0xFF7683A8),
       ),
     ];
 
@@ -577,7 +574,7 @@ class _HomePageState extends State<HomePage> {
               runSpacing: 6,
               children: [
                 _taskMetaChip('状态: ${_filterLabel(_filter)}', AppTheme.softBlue),
-                _taskMetaChip('排序: ${_sortLabel(_sort)}', AppTheme.softAmber),
+                _taskMetaChip('排序: ${_sortLabel(_sort)}', AppTheme.softViolet),
               ],
             ),
           ),
@@ -807,7 +804,7 @@ class _HomePageState extends State<HomePage> {
                         _taskMetaChip(task.quadrant.label, const Color(0xFFE8EEFF)),
                         _taskMetaChip(dueText, const Color(0xFFFFF0DE)),
                         _taskMetaChip('积分 ${task.points}', AppTheme.softGreen),
-                        _taskMetaChip(repeatText, const Color(0xFFF0EEFF)),
+                        _taskMetaChip(repeatText, AppTheme.softViolet),
                       ],
                     ),
                     if (sharedProgress != null) ...[
