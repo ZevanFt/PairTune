@@ -4,6 +4,7 @@ import '../services/account_api_service.dart';
 import '../services/health_api_service.dart';
 import '../ui/app_theme.dart';
 import '../utils/error_display.dart';
+import '../widgets/hero_panel.dart';
 import 'debug_page.dart';
 import 'edit_display_name_page.dart';
 
@@ -248,70 +249,31 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildHeaderCard(UserProfile? profile) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(22),
-        gradient: const LinearGradient(
-          colors: [AppTheme.heroStart, AppTheme.heroMid, AppTheme.heroEnd],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+    return HeroPanel(
+      tag: 'PROFILE',
+      title: profile?.displayName ?? '合拍用户',
+      subtitle: 'PairTune ID: ${profile?.owner ?? '...'}',
+      trailing: const CircleAvatar(
+        radius: 18,
+        backgroundColor: Color(0x33FFFFFF),
+        child: Icon(Icons.person_rounded, color: Colors.white, size: 20),
+      ),
+      metrics: [
+        HeroMetricData(
+          icon: widget.duoEnabled
+              ? Icons.people_alt_rounded
+              : Icons.person_outline_rounded,
+          label: '当前模式',
+          value: widget.duoEnabled ? '双人' : '单人',
         ),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x1F243355),
-            blurRadius: 18,
-            offset: Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          const CircleAvatar(
-            radius: 30,
-            backgroundColor: AppTheme.softBlue,
-            child: Icon(Icons.person_rounded, color: AppTheme.primary, size: 30),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: const Color(0x2BFFFFFF),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: const Text(
-                    'PROFILE',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.1,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  profile?.displayName ?? '合拍用户',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'PairTune ID: ${profile?.owner ?? '...'}',
-                  style: const TextStyle(color: Colors.white70),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+        HeroMetricData(
+          icon: widget.owner == 'me'
+              ? Icons.person_pin_circle_rounded
+              : Icons.handshake_rounded,
+          label: '当前身份',
+          value: widget.owner == 'me' ? '我' : '搭档',
+        ),
+      ],
     );
   }
 

@@ -218,6 +218,18 @@ flutter run -d 55c83fe9
 - 已完成编辑任务页重构：`frontend/lib/pages/edit_task_page.dart`
   - 表单分区卡片化：基础信息 / 截止设置 / 重复规则
   - 截止与重复截止改为信息行 + 操作按钮，语义更清晰
+
+## Codex UI 第五轮优化（2026-03-09）
+- 已新增通用 Hero 组件：`frontend/lib/widgets/hero_panel.dart`
+  - 统一结构为：顶部标签 + 主标题 + 副标题（可选）+ 指标行
+  - 统一圆角、渐变、阴影与指标卡视觉节奏
+- 已完成四大主页面 Hero 对齐：
+  - `frontend/lib/pages/home_page.dart`
+  - `frontend/lib/pages/store_page.dart`
+  - `frontend/lib/pages/notifications_page.dart`
+  - `frontend/lib/pages/profile_page.dart`
+- 本轮效果：四页首屏信息区布局与层级一致，内容语义按页面保留差异
+- 验证：`flutter analyze` 通过（No issues found）
   - 保留原有重复任务、周几重复、共同任务字段与保存逻辑
 - 已完成调试页重构：`frontend/lib/pages/debug_page.dart`
   - 顶部诊断 Hero：Base URL / 健康状态 / 日志数

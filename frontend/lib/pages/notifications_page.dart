@@ -5,6 +5,7 @@ import '../services/account_api_service.dart';
 import '../services/health_api_service.dart';
 import '../ui/app_theme.dart';
 import '../utils/error_display.dart';
+import '../widgets/hero_panel.dart';
 import '../widgets/shimmer_block.dart';
 
 class NotificationsPage extends StatefulWidget {
@@ -159,93 +160,22 @@ class _NotificationsPageState extends State<NotificationsPage> {
   }
 
   Widget _buildHero(String ownerLabel) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(22),
-        gradient: const LinearGradient(
-          colors: [AppTheme.heroStart, AppTheme.heroMid, AppTheme.heroEnd],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+    return HeroPanel(
+      tag: 'NOTIFICATION',
+      title: ownerLabel,
+      subtitle: '按时间倒序查看任务、积分与协作提醒',
+      metrics: [
+        HeroMetricData(
+          icon: Icons.mark_email_unread_rounded,
+          label: '未读',
+          value: '$_unreadCount',
         ),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x1F243355),
-            blurRadius: 18,
-            offset: Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: Color(0x2DFFFFFF),
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: const Text(
-              'NOTIFICATION',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 10,
-                letterSpacing: 1.1,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            ownerLabel,
-            style: const TextStyle(
-              fontSize: 22,
-              color: Colors.white,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              _metricChip('未读', '$_unreadCount'),
-              const SizedBox(width: 8),
-              _metricChip('总数', '${_list.length}'),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _metricChip(String label, String value) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: const Color(0x2BFFFFFF),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(width: 6),
-          Text(
-            value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 15,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ],
-      ),
+        HeroMetricData(
+          icon: Icons.notifications_active_rounded,
+          label: '总数',
+          value: '${_list.length}',
+        ),
+      ],
     );
   }
 

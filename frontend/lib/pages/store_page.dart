@@ -5,6 +5,7 @@ import '../services/health_api_service.dart';
 import '../services/store_api_service.dart';
 import '../ui/app_theme.dart';
 import '../utils/error_display.dart';
+import '../widgets/hero_panel.dart';
 import '../widgets/shimmer_block.dart';
 import 'product_form_page.dart';
 
@@ -492,80 +493,22 @@ class _StorePageState extends State<StorePage> {
   }
 
   Widget _buildPointsCard() {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(22),
-        gradient: const LinearGradient(
-          colors: [AppTheme.heroStart, AppTheme.heroMid, AppTheme.heroEnd],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+    return HeroPanel(
+      tag: 'PAIR REWARD',
+      title: widget.owner == 'me' ? '我的积分余额' : '搭档积分余额',
+      subtitle: '用任务积分兑换奖励，保持正向循环',
+      metrics: [
+        HeroMetricData(
+          icon: Icons.stars_rounded,
+          label: '当前积分',
+          value: '$_points',
         ),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x1F243355),
-            blurRadius: 18,
-            offset: Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(11),
-            decoration: BoxDecoration(
-              color: AppTheme.sky,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(
-              Icons.stars_rounded,
-              color: AppTheme.ink,
-              size: 30,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  widget.owner == 'me' ? '我的积分' : '搭档积分',
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  '$_points',
-                  style: const TextStyle(
-                    fontSize: 30,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: const Color(0x2EFFFFFF),
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: const Text(
-              'PAIR REWARD',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w700,
-                fontSize: 10,
-                letterSpacing: 1.1,
-              ),
-            ),
-          ),
-        ],
-      ),
+        HeroMetricData(
+          icon: Icons.storefront_rounded,
+          label: '可兑换',
+          value: '${_market.length}',
+        ),
+      ],
     );
   }
 

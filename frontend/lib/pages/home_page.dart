@@ -8,6 +8,7 @@ import '../services/store_api_service.dart';
 import '../services/task_api_service.dart';
 import '../ui/app_theme.dart';
 import '../utils/error_display.dart';
+import '../widgets/hero_panel.dart';
 import '../widgets/shimmer_block.dart';
 import 'edit_task_page.dart';
 
@@ -379,127 +380,31 @@ class _HomePageState extends State<HomePage> {
     required int doneCount,
     required int completionRate,
   }) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        gradient: const LinearGradient(
-          colors: [AppTheme.heroStart, AppTheme.heroMid, AppTheme.heroEnd],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x2B233861),
-            blurRadius: 24,
-            offset: Offset(0, 12),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: const Color(0x2EFFFFFF),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: const Text(
-                  'TODAY FOCUS',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    letterSpacing: 1.2,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              const Spacer(),
-              Text(
-                '完成率 $completionRate%',
-                style: const TextStyle(
-                  color: Colors.white70,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            !widget.duoEnabled
-                ? '今天把关键任务推进一步'
-                : (widget.owner == 'me' ? '我今天要推进的重点' : '搭档今天的重点事项'),
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 24,
-              fontWeight: FontWeight.w800,
-              height: 1.2,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              _heroMetric(
-                icon: Icons.bolt_rounded,
-                label: '进行中',
-                value: '$activeCount',
-              ),
-              const SizedBox(width: 10),
-              _heroMetric(
-                icon: Icons.check_circle_rounded,
-                label: '已完成',
-                value: '$doneCount',
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _heroMetric({
-    required IconData icon,
-    required String label,
-    required String value,
-  }) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.16),
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, size: 18, color: Colors.white),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    label,
-                    style: const TextStyle(fontSize: 12, color: Colors.white70),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    value,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+    return HeroPanel(
+      tag: 'TODAY FOCUS',
+      title: !widget.duoEnabled
+          ? '今天把关键任务推进一步'
+          : (widget.owner == 'me' ? '我今天要推进的重点' : '搭档今天的重点事项'),
+      trailing: Text(
+        '完成率 $completionRate%',
+        style: const TextStyle(
+          color: Colors.white70,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
         ),
       ),
+      metrics: [
+        HeroMetricData(
+          icon: Icons.bolt_rounded,
+          label: '进行中',
+          value: '$activeCount',
+        ),
+        HeroMetricData(
+          icon: Icons.check_circle_rounded,
+          label: '已完成',
+          value: '$doneCount',
+        ),
+      ],
     );
   }
 
