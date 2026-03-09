@@ -252,3 +252,10 @@ flutter run -d 55c83fe9
   - `edit_task_page.dart`
   - `debug_page.dart`
 - 验证：`flutter analyze` 通过（No issues found）
+
+## Codex UI 收尾交付（2026-03-09）
+- 已新增 UI 收尾文档：`docs/UI_CURRENT_STATE_AND_NEXT.md`
+  - 汇总当前 UI 已完成项（可交付）
+  - 明确当前视觉基线（浅色、低饱和、统一 token）
+  - 收敛后续优化为 3 项（动效/字体层级/空状态）
+  - 建议 UI 冻结为 `v1-beta`，避免后端联调阶段反复改布局
