@@ -4,7 +4,7 @@ class AppTheme {
   static const Color primary = Color(0xFF253B6E);
   static const Color ink = Color(0xFF16213A);
   static const Color textMuted = Color(0xFF6F7890);
-  static const Color blush = Color(0xFFF36C9A);
+  static const Color blush = Color(0xFF4E6EA8);
   static const Color peach = Color(0xFFFFE7D1);
   static const Color mint = Color(0xFFDDF7EA);
   static const Color sky = Color(0xFFDCEEFF);
@@ -16,8 +16,8 @@ class AppTheme {
   static const Color warning = Color(0xFFF08A24);
   static const Color danger = Color(0xFFE55353);
   static const Color pageBgTop = Color(0xFFFFFBF6);
-  static const Color pageBgMid = Color(0xFFFFF7F1);
-  static const Color pageBgBottom = Color(0xFFF3F7FF);
+  static const Color pageBgMid = Color(0xFFF8F7F4);
+  static const Color pageBgBottom = Color(0xFFF1F5FC);
   static const Color panel = Color(0xFFFFFCF9);
   static const Color panelBorder = Color(0xFFE8E0D4);
   static const Color softBlue = Color(0xFFEAF2FF);

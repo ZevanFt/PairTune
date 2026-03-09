@@ -230,6 +230,17 @@ flutter run -d 55c83fe9
   - `frontend/lib/pages/profile_page.dart`
 - 本轮效果：四页首屏信息区布局与层级一致，内容语义按页面保留差异
 - 验证：`flutter analyze` 通过（No issues found）
+
+## Codex UI 第六轮优化（2026-03-09）
+- 主题色收敛：
+  - `frontend/lib/ui/app_theme.dart` 将强调色 `blush` 从高饱和粉色改为低饱和蓝色，统一简约浅色基调
+  - 页面背景中间层与底层色值改为更中性的浅灰蓝过渡，降低“糖果感”
+- 底部导航继续对齐 Play 结构细节：
+  - `frontend/lib/main.dart` 为 `NavigationBar` 增加 `surfaceTintColor/shadowColor` 透明化处理
+  - 维持“无选中边框/无胶囊高亮”，仅通过图标与文字状态变化表达选中
+  - 增加 `selectedIcon` 两态图标（任务/商城/通知/个人）
+  - 底栏最后一项文案由“我的”改为“个人”
+- 验证：`flutter analyze` 通过（No issues found）
   - 保留原有重复任务、周几重复、共同任务字段与保存逻辑
 - 已完成调试页重构：`frontend/lib/pages/debug_page.dart`
   - 顶部诊断 Hero：Base URL / 健康状态 / 日志数

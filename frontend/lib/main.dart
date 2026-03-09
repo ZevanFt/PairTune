@@ -229,6 +229,8 @@ class _BrandBottomBar extends StatelessWidget {
     return NavigationBarTheme(
       data: NavigationBarThemeData(
         backgroundColor: AppTheme.panel,
+        surfaceTintColor: Colors.transparent,
+        shadowColor: Colors.transparent,
         indicatorColor: Colors.transparent,
         iconTheme: WidgetStateProperty.resolveWith((states) {
           final selected = states.contains(WidgetState.selected);
@@ -253,19 +255,23 @@ class _BrandBottomBar extends StatelessWidget {
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.check_circle_outline_rounded),
+            selectedIcon: Icon(Icons.check_circle_rounded),
             label: '任务',
           ),
           NavigationDestination(
-            icon: Icon(Icons.storefront_rounded),
+            icon: Icon(Icons.shopping_bag_outlined),
+            selectedIcon: Icon(Icons.shopping_bag_rounded),
             label: '商城',
           ),
           NavigationDestination(
             icon: Icon(Icons.notifications_none_rounded),
+            selectedIcon: Icon(Icons.notifications_rounded),
             label: '通知',
           ),
           NavigationDestination(
             icon: Icon(Icons.person_outline_rounded),
-            label: '我的',
+            selectedIcon: Icon(Icons.person_rounded),
+            label: '个人',
           ),
         ],
       ),
