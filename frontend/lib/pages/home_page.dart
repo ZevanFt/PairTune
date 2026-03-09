@@ -7,6 +7,7 @@ import '../services/health_api_service.dart';
 import '../services/store_api_service.dart';
 import '../services/task_api_service.dart';
 import '../ui/app_surface.dart';
+import '../ui/app_space.dart';
 import '../ui/app_text.dart';
 import '../ui/app_theme.dart';
 import '../utils/error_display.dart';
@@ -280,14 +281,14 @@ class _HomePageState extends State<HomePage> {
         child: RefreshIndicator(
           onRefresh: _load,
           child: ListView(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(AppSpace.lg),
             children: [
               _buildHero(
                 activeCount: activeCount,
                 doneCount: doneCount,
                 completionRate: completionRate,
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: AppSpace.sm + AppSpace.xxs),
               if (_refreshing)
                 const Padding(
                   padding: EdgeInsets.only(bottom: 12),
@@ -299,13 +300,13 @@ class _HomePageState extends State<HomePage> {
                   child: _buildWarnBanner(_banner!),
                 ),
               _buildSectionHeader('四象限', '点击象限并快速创建任务'),
-              const SizedBox(height: 8),
+              AppSpace.h8,
               _buildQuadrantGrid(),
-              const SizedBox(height: 16),
+              AppSpace.h16,
               _buildSectionHeader('任务列表', '按条件筛选并专注执行'),
-              const SizedBox(height: 8),
+              AppSpace.h8,
               _buildListToolbar(),
-              const SizedBox(height: 10),
+              AppSpace.h10,
               if (_loading && _tasks.isEmpty) ..._buildTaskSkeletons(),
               ..._displayTasks.map(_buildTaskTile),
               if (!_loading && _displayTasks.isEmpty)
@@ -826,7 +827,7 @@ class _HomePageState extends State<HomePage> {
             borderRadius: BorderRadius.circular(999),
           ),
         ),
-        const SizedBox(width: 10),
+        AppSpace.w10,
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

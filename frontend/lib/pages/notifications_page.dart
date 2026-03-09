@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../services/account_api_service.dart';
 import '../services/health_api_service.dart';
 import '../ui/app_surface.dart';
+import '../ui/app_space.dart';
 import '../ui/app_text.dart';
 import '../ui/app_theme.dart';
 import '../utils/error_display.dart';
@@ -112,12 +113,12 @@ class _NotificationsPageState extends State<NotificationsPage> {
         child: RefreshIndicator(
           onRefresh: _load,
           child: ListView(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(AppSpace.lg),
             children: [
               _buildHero(ownerLabel),
-              const SizedBox(height: 14),
+              const SizedBox(height: AppSpace.sm + AppSpace.xxs),
               _buildSectionHeader('最新动态', '按时间倒序查看提醒'),
-              const SizedBox(height: 8),
+              AppSpace.h8,
               if (_error != null)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 10),
@@ -193,7 +194,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
             borderRadius: BorderRadius.circular(999),
           ),
         ),
-        const SizedBox(width: 10),
+        AppSpace.w10,
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

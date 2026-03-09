@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../services/account_api_service.dart';
 import '../services/health_api_service.dart';
 import '../ui/app_surface.dart';
+import '../ui/app_space.dart';
 import '../ui/app_text.dart';
 import '../ui/app_theme.dart';
 import '../utils/error_display.dart';
@@ -167,7 +168,7 @@ class _ProfilePageState extends State<ProfilePage> {
         child: RefreshIndicator(
           onRefresh: _load,
           child: ListView(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(AppSpace.lg),
             children: [
               if (_error != null)
                 Padding(
@@ -175,9 +176,9 @@ class _ProfilePageState extends State<ProfilePage> {
                   child: _buildErrorPanel(_error!),
                 ),
               _buildHeaderCard(profile),
-              const SizedBox(height: 16),
+              AppSpace.h16,
               _buildSectionTitle('资料与关系', '编辑资料并维护协作身份'),
-              const SizedBox(height: 8),
+              AppSpace.h8,
               _buildItem(
                 Icons.edit_rounded,
                 '编辑资料',
@@ -191,9 +192,9 @@ class _ProfilePageState extends State<ProfilePage> {
                 subtitle: widget.duoEnabled ? '已开启：可切换我/搭档视角' : '已关闭：当前为单人模式',
                 onChanged: _changeDuoMode,
               ),
-              const SizedBox(height: 12),
+              AppSpace.h12,
               _buildSectionTitle('账号与通知', '管理账号安全并调整消息提醒'),
-              const SizedBox(height: 8),
+              AppSpace.h8,
               _buildItem(Icons.security_rounded, '账号安全', '手机号/邮箱/登录方式'),
               _buildSwitchCard(
                 value: settings?.notificationsEnabled ?? true,
@@ -201,9 +202,9 @@ class _ProfilePageState extends State<ProfilePage> {
                 subtitle: '任务提醒与商城提醒',
                 onChanged: _changeNotificationMode,
               ),
-              const SizedBox(height: 12),
+              AppSpace.h12,
               _buildSectionTitle('支持与隐私', '反馈问题并管理隐私数据'),
-              const SizedBox(height: 8),
+              AppSpace.h8,
               _buildItem(Icons.feedback_rounded, '帮助与反馈', '问题反馈与产品建议'),
               _buildItem(
                 Icons.bug_report_outlined,
@@ -217,7 +218,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 },
               ),
               _buildItem(Icons.privacy_tip_rounded, '隐私与数据', '导出数据、账号注销'),
-              const SizedBox(height: 18),
+              const SizedBox(height: AppSpace.lg + 2),
               Text(
                 '合拍 PairTune · v1.0.0',
                 textAlign: TextAlign.center,
@@ -290,7 +291,7 @@ class _ProfilePageState extends State<ProfilePage> {
             borderRadius: BorderRadius.circular(999),
           ),
         ),
-        const SizedBox(width: 10),
+        AppSpace.w10,
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

@@ -309,6 +309,17 @@ flutter run -d 55c83fe9
   - `frontend/lib/pages/profile_page.dart`
 - 本轮效果：字号、字重、说明文本层级更一致，后续调字只需改一处
 - 验证：`flutter analyze` 通过（No issues found）
+
+## Codex UI 第十四轮优化（2026-03-10）
+- 间距系统统一：新增 `frontend/lib/ui/app_space.dart`
+  - 定义 4/8/10/12/16/24 间距 token 与常用 `SizedBox` 预设
+- 四主页主节奏接入间距 token：
+  - `frontend/lib/pages/home_page.dart`
+  - `frontend/lib/pages/store_page.dart`
+  - `frontend/lib/pages/notifications_page.dart`
+  - `frontend/lib/pages/profile_page.dart`
+- 本轮效果：页面内边距、分区间距与标题间距来源统一，后续调节节奏可集中修改
+- 验证：`flutter analyze` 通过（No issues found）
   - 保留原有重复任务、周几重复、共同任务字段与保存逻辑
 - 已完成调试页重构：`frontend/lib/pages/debug_page.dart`
   - 顶部诊断 Hero：Base URL / 健康状态 / 日志数

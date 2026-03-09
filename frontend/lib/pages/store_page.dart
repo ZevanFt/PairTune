@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../services/health_api_service.dart';
 import '../services/store_api_service.dart';
 import '../ui/app_surface.dart';
+import '../ui/app_space.dart';
 import '../ui/app_text.dart';
 import '../ui/app_theme.dart';
 import '../utils/error_display.dart';
@@ -432,7 +433,7 @@ class _StorePageState extends State<StorePage> {
         child: RefreshIndicator(
           onRefresh: _load,
           child: ListView(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(AppSpace.lg),
             children: [
               if (_refreshing)
                 const Padding(
@@ -445,12 +446,12 @@ class _StorePageState extends State<StorePage> {
                   child: _buildErrorPanel(_error!),
                 ),
               _buildPointsCard(),
-              const SizedBox(height: 16),
+              AppSpace.h16,
               _buildSectionHeader(
                 widget.duoEnabled ? '可兑换商品（搭档发布）' : '奖励区',
                 widget.duoEnabled ? '消耗积分并兑换奖励' : '先积累积分并准备奖励',
               ),
-              const SizedBox(height: 8),
+              AppSpace.h8,
               if (widget.duoEnabled) ...[
                 if (_loading && _market.isEmpty)
                   ..._buildListSkeletons()
@@ -460,25 +461,25 @@ class _StorePageState extends State<StorePage> {
                 ],
               ] else
                 _buildEmptyCard('单人模式下暂不开放双人兑换，邀请搭档后即可双向兑换。'),
-              const SizedBox(height: 16),
+              AppSpace.h16,
               _buildSectionHeader('我发布的商品', '维护商品并管理上架状态'),
-              const SizedBox(height: 8),
+              AppSpace.h8,
               if (_loading && _mine.isEmpty)
                 ..._buildListSkeletons()
               else ...[
                 ..._mine.map(_buildMyProductItem),
                 if (_mine.isEmpty) _buildEmptyCard('你还没发布商品'),
               ],
-              const SizedBox(height: 16),
+              AppSpace.h16,
               _buildSectionHeader('已兑换记录', '追踪每一次积分兑换'),
-              const SizedBox(height: 8),
+              AppSpace.h8,
               if (_loading && _owned.isEmpty)
                 ..._buildListSkeletons()
               else ...[
                 ..._owned.map(_buildOwnedItem),
                 if (_owned.isEmpty) _buildEmptyCard('暂无兑换记录'),
               ],
-              const SizedBox(height: 24),
+              AppSpace.h24,
             ],
           ),
         ),
@@ -525,7 +526,7 @@ class _StorePageState extends State<StorePage> {
             borderRadius: BorderRadius.circular(999),
           ),
         ),
-        const SizedBox(width: 10),
+        AppSpace.w10,
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
