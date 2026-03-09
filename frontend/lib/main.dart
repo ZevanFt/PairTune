@@ -130,13 +130,13 @@ class _ModeSelectPage extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 32,
                     fontWeight: FontWeight.w900,
-                    color: Color(0xFF1A2B4F),
+                    color: AppTheme.primary,
                   ),
                 ),
                 const SizedBox(height: 8),
                 const Text(
                   '一个人也能用，两个人更好用。',
-                  style: TextStyle(fontSize: 16, color: Color(0xFF4A5672)),
+                  style: TextStyle(fontSize: 16, color: AppTheme.textMuted),
                 ),
                 const SizedBox(height: 28),
                 _modeCard(
@@ -184,10 +184,10 @@ class _ModeSelectPage extends StatelessWidget {
                 width: 42,
                 height: 42,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE7EEFF),
+                  color: AppTheme.softBlue,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(icon, color: const Color(0xFF1A2B4F)),
+                child: Icon(icon, color: AppTheme.primary),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -198,7 +198,7 @@ class _ModeSelectPage extends StatelessWidget {
                       title,
                       style: const TextStyle(
                         fontWeight: FontWeight.w800,
-                        color: Color(0xFF1A2B4F),
+                        color: AppTheme.primary,
                       ),
                     ),
                     const SizedBox(height: 3),
@@ -263,10 +263,10 @@ class _BrandBottomBar extends StatelessWidget {
                     duration: const Duration(milliseconds: 220),
                     curve: Curves.easeOutCubic,
                     padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 4),
-                  decoration: BoxDecoration(
-                    color: selected ? AppTheme.softBlue : Colors.transparent,
-                    borderRadius: BorderRadius.circular(14),
-                  ),
+                    decoration: BoxDecoration(
+                      color: selected ? AppTheme.softBlue : Colors.transparent,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -284,8 +284,8 @@ class _BrandBottomBar extends StatelessWidget {
                           items[i].$1,
                           size: selected ? 22 : 21,
                           color: selected
-                              ? const Color(0xFF1A2B4F)
-                              : const Color(0xFF8A93A5),
+                              ? AppTheme.primary
+                              : AppTheme.textMuted,
                         ),
                         const SizedBox(height: 3),
                         Text(
@@ -295,8 +295,8 @@ class _BrandBottomBar extends StatelessWidget {
                             letterSpacing: 0.15,
                             fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
                             color: selected
-                                ? const Color(0xFF1A2B4F)
-                                : const Color(0xFF8A93A5),
+                                ? AppTheme.primary
+                                : AppTheme.textMuted,
                           ),
                         ),
                       ],
