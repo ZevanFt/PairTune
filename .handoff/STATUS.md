@@ -259,6 +259,15 @@ flutter run -d 55c83fe9
   - 商品信息 chip 配色降低饱和度，减少紫色强调
   - “我发布的商品”操作改为 `more` 菜单（编辑/下架），减少按钮堆叠
 - 验证：`flutter analyze` 通过（No issues found）
+
+## Codex UI 第九轮优化（2026-03-09）
+- 通知页细节收敛：`frontend/lib/pages/notifications_page.dart`
+  - “全部已读”仅在存在未读时显示，减少无效操作噪声
+  - 分区标题改为小圆点标识，和首页/商城保持统一
+  - 通知卡片加入轻阴影并收敛类型色块，整体更克制
+  - 未读操作由“图标+文字按钮”改为轻量图标动作
+  - 已读状态图标尺寸与信息密度统一
+- 验证：`flutter analyze` 通过（No issues found）
   - 保留原有重复任务、周几重复、共同任务字段与保存逻辑
 - 已完成调试页重构：`frontend/lib/pages/debug_page.dart`
   - 顶部诊断 Hero：Base URL / 健康状态 / 日志数

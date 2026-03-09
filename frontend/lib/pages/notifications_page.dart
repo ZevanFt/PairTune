@@ -89,13 +89,14 @@ class _NotificationsPageState extends State<NotificationsPage> {
       appBar: AppBar(
         title: _buildTitleWithHealth('通知中心'),
         actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: TextButton(
-              onPressed: _markAllRead,
-              child: const Text('全部已读'),
+          if (_unreadCount > 0)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: TextButton(
+                onPressed: _markAllRead,
+                child: const Text('已读全部'),
+              ),
             ),
-          ),
         ],
       ),
       body: Container(
@@ -183,20 +184,20 @@ class _NotificationsPageState extends State<NotificationsPage> {
     return Row(
       children: [
         Container(
-          width: 4,
-          height: 28,
+          width: 8,
+          height: 8,
           decoration: BoxDecoration(
             color: AppTheme.blush,
             borderRadius: BorderRadius.circular(999),
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 10),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               title,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
             ),
             Text(
               subtitle,
@@ -262,19 +263,19 @@ class _NotificationsPageState extends State<NotificationsPage> {
         Icons.alarm_rounded,
         AppTheme.softBlue,
         '任务',
-        AppTheme.softViolet,
+        AppTheme.softBlue,
       ),
       'exchange' => (
         Icons.redeem_rounded,
-        AppTheme.softBlue,
+        AppTheme.softAmber,
         '兑换',
-        AppTheme.softViolet,
+        AppTheme.softAmber,
       ),
       'relation' => (
         Icons.favorite_rounded,
         AppTheme.softViolet,
         '关系',
-        AppTheme.softRose,
+        AppTheme.softViolet,
       ),
       _ => (
         Icons.system_update_alt_rounded,
@@ -291,18 +292,25 @@ class _NotificationsPageState extends State<NotificationsPage> {
         color: AppTheme.panel.withValues(alpha: 0.94),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppTheme.panelBorder),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0F1F2E48),
+            blurRadius: 10,
+            offset: Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 42,
-            height: 42,
+            width: 38,
+            height: 38,
             decoration: BoxDecoration(
               color: color,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(icon, color: AppTheme.primary),
+            child: Icon(icon, color: AppTheme.primary, size: 20),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -325,7 +333,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                     ),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
+                        horizontal: 9,
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
@@ -335,7 +343,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                       child: Text(
                         badgeText,
                         style: const TextStyle(
-                          fontSize: 11,
+                          fontSize: 10.5,
                           fontWeight: FontWeight.w700,
                           color: AppTheme.ink,
                         ),
@@ -365,9 +373,10 @@ class _NotificationsPageState extends State<NotificationsPage> {
                     ),
                     const Spacer(),
                     if (notice.isRead)
-                      const Icon(Icons.check_rounded, color: AppTheme.success)
+                      const Icon(Icons.check_rounded, color: AppTheme.success, size: 18)
                     else
-                      TextButton.icon(
+                      IconButton(
+                        tooltip: '标记已读',
                         onPressed: () async {
                           try {
                             await _accountApi.markNotificationRead(
@@ -384,8 +393,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
                             );
                           }
                         },
+                        visualDensity: VisualDensity.compact,
                         icon: const Icon(Icons.mark_email_read_rounded, size: 18),
-                        label: const Text('标记已读'),
                       ),
                   ],
                 ),
