@@ -254,15 +254,15 @@ class _ProfilePageState extends State<ProfilePage> {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(22),
         gradient: const LinearGradient(
-          colors: [Color(0xFF1A2B4F), Color(0xFF304778), Color(0xFF3D588F)],
+          colors: [AppTheme.heroStart, AppTheme.heroMid, AppTheme.heroEnd],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x2A2A3B5E),
-            blurRadius: 22,
-            offset: Offset(0, 10),
+            color: Color(0x1F243355),
+            blurRadius: 18,
+            offset: Offset(0, 8),
           ),
         ],
       ),
@@ -270,8 +270,8 @@ class _ProfilePageState extends State<ProfilePage> {
         children: [
           const CircleAvatar(
             radius: 30,
-            backgroundColor: Color(0xFFE8F1FF),
-            child: Icon(Icons.person_rounded, color: Color(0xFF1A2B4F), size: 30),
+            backgroundColor: AppTheme.softBlue,
+            child: Icon(Icons.person_rounded, color: AppTheme.primary, size: 30),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -354,7 +354,7 @@ class _ProfilePageState extends State<ProfilePage> {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.92),
+        color: AppTheme.panel.withValues(alpha: 0.94),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppTheme.panelBorder),
       ),
@@ -376,7 +376,7 @@ class _ProfilePageState extends State<ProfilePage> {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.92),
+        color: AppTheme.panel.withValues(alpha: 0.94),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppTheme.panelBorder),
       ),
@@ -385,7 +385,7 @@ class _ProfilePageState extends State<ProfilePage> {
           width: 38,
           height: 38,
           decoration: BoxDecoration(
-            color: const Color(0xFFEAF1FF),
+            color: AppTheme.softBlue,
             borderRadius: BorderRadius.circular(10),
           ),
           child: Icon(icon, color: AppTheme.primary),
