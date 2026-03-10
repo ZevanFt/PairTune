@@ -147,6 +147,35 @@
 - `detail` TEXT
 - `created_at` TEXT NOT NULL
 
+### 2.14 `auth_roles`（新增）
+角色表
+- `id` INTEGER PK AUTOINCREMENT
+- `name` TEXT UNIQUE NOT NULL
+- `description` TEXT
+- `created_at` TEXT NOT NULL
+- `updated_at` TEXT NOT NULL
+
+### 2.15 `auth_permissions`（新增）
+权限点表
+- `id` INTEGER PK AUTOINCREMENT
+- `code` TEXT UNIQUE NOT NULL
+- `name` TEXT NOT NULL
+- `description` TEXT
+- `created_at` TEXT NOT NULL
+- `updated_at` TEXT NOT NULL
+
+### 2.16 `auth_role_permissions`（新增）
+角色权限关联
+- `role_id` INTEGER NOT NULL
+- `permission_id` INTEGER NOT NULL
+- `created_at` TEXT NOT NULL
+
+### 2.17 `auth_user_roles`（新增）
+用户角色关联
+- `user_id` INTEGER NOT NULL
+- `role_id` INTEGER NOT NULL
+- `created_at` TEXT NOT NULL
+
 ### 2.14 `auth_invite_codes`（新增）
 注册邀请码
 - `id` INTEGER PK AUTOINCREMENT
@@ -206,7 +235,7 @@
 
 ### 3.6 快照导出
 - `GET /export/snapshot`
-  - 现包含：`tasks/points/ledger/products/owned_items/profiles/settings/notifications/auth_users/auth_sessions/auth_security_events/auth_email_codes/auth_invite_codes`
+  - 现包含：`tasks/points/ledger/products/owned_items/profiles/settings/notifications/auth_users/auth_sessions/auth_security_events/auth_email_codes/auth_invite_codes/auth_roles/auth_permissions/auth_role_permissions/auth_user_roles`
 
 ### 3.7 认证（新增）
 - `POST /auth/register/account`
@@ -287,6 +316,24 @@
 - `POST /admin/invite-codes/disable`
   - 入参：`code`
   - 说明：禁用邀请码
+
+### 3.9 权限与角色（新增）
+- `GET /admin/permissions`
+  - 说明：获取全部权限点
+- `GET /admin/roles`
+  - 说明：获取角色及其权限
+- `POST /admin/roles`
+  - 入参：`name/description?/permission_codes[]`
+- `PUT /admin/roles/:id`
+  - 入参：`name?/description?/permission_codes[]`
+- `DELETE /admin/roles/:id`
+  - 说明：删除角色（内置 admin 角色不可删除）
+- `GET /admin/users`
+  - 入参：`limit?`
+  - 说明：列出用户与角色
+- `POST /admin/users/:id/roles`
+  - 入参：`role_ids[]`
+  - 说明：设置用户角色（覆盖式）
 
 ## 4. 请求示例
 

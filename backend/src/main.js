@@ -190,6 +190,25 @@ function writeAuthEvent({ action, phone = null, email = null, clientKey = null, 
   ).run(action, phone, email, clientKey, success ? 1 : 0, detail, nowIso());
 }
 
+function getUserRoles(userId) {
+  return db.prepare(
+    `SELECT r.id, r.name, r.description
+     FROM auth_roles r
+     JOIN auth_user_roles ur ON ur.role_id = r.id
+     WHERE ur.user_id = ?`,
+  ).all(userId);
+}
+
+function getUserPermissions(userId) {
+  return db.prepare(
+    `SELECT DISTINCT p.code
+     FROM auth_permissions p
+     JOIN auth_role_permissions rp ON rp.permission_id = p.id
+     JOIN auth_user_roles ur ON ur.role_id = rp.role_id
+     WHERE ur.user_id = ?`,
+  ).all(userId).map((row) => row.code);
+}
+
 function getAuthToken(req) {
   const header = String(req.headers.authorization || '');
   if (header.toLowerCase().startsWith('bearer ')) {
@@ -237,6 +256,18 @@ function requireAdmin(req, res) {
     return null;
   }
   return session;
+}
+
+function requirePermission(req, res, permissionCode) {
+  const session = requireSession(req, res);
+  if (!session) return null;
+  if (session.role === 'admin') return session;
+  const permissions = getUserPermissions(session.user_id);
+  if (permissions.includes('admin.full') || permissions.includes(permissionCode)) {
+    return session;
+  }
+  res.status(403).json({ code: 403, message: '无权限访问', result: null });
+  return null;
 }
 
 function ensureSchema() {
@@ -390,6 +421,37 @@ CREATE TABLE IF NOT EXISTS auth_security_events (
   detail TEXT,
   created_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS auth_roles (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  description TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS auth_permissions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  code TEXT NOT NULL,
+  name TEXT NOT NULL,
+  description TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS auth_role_permissions (
+  role_id INTEGER NOT NULL,
+  permission_id INTEGER NOT NULL,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (role_id, permission_id)
+);
+
+CREATE TABLE IF NOT EXISTS auth_user_roles (
+  user_id INTEGER NOT NULL,
+  role_id INTEGER NOT NULL,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (user_id, role_id)
+);
 `);
 
   const taskColumns = db.prepare("PRAGMA table_info('tasks')").all();
@@ -451,6 +513,8 @@ CREATE TABLE IF NOT EXISTS auth_security_events (
   }
 
   db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_auth_invite_codes_code_unique ON auth_invite_codes(code);');
+  db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_auth_roles_name_unique ON auth_roles(name);');
+  db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_auth_permissions_code_unique ON auth_permissions(code);');
 
   const now = new Date().toISOString();
   db.prepare(
@@ -485,6 +549,76 @@ CREATE TABLE IF NOT EXISTS auth_security_events (
 
 ensureSchema();
 
+function ensureRbacDefaults() {
+  const now = nowIso();
+  const permissions = [
+    { code: 'admin.full', name: '全量管理权限' },
+    { code: 'admin.dashboard.view', name: '查看仪表盘' },
+    { code: 'admin.stats.view', name: '查看运营数据' },
+    { code: 'admin.invites.view', name: '查看邀请码' },
+    { code: 'admin.invites.manage', name: '管理邀请码' },
+    { code: 'admin.users.view', name: '查看用户' },
+    { code: 'admin.roles.view', name: '查看角色权限' },
+    { code: 'admin.roles.manage', name: '管理角色权限' },
+    { code: 'admin.security.view', name: '查看安全审计' },
+    { code: 'admin.sessions.view', name: '查看会话' },
+    { code: 'admin.tasks.view', name: '查看任务运营' },
+    { code: 'admin.points.view', name: '查看积分运营' },
+    { code: 'admin.store.view', name: '查看商城运营' },
+    { code: 'admin.settings.view', name: '查看系统设置' },
+  ];
+
+  const insertPerm = db.prepare(
+    `INSERT OR IGNORE INTO auth_permissions(code, name, description, created_at, updated_at)
+     VALUES (?, ?, NULL, ?, ?)`,
+  );
+  permissions.forEach((perm) => insertPerm.run(perm.code, perm.name, now, now));
+
+  const insertRole = db.prepare(
+    `INSERT OR IGNORE INTO auth_roles(name, description, created_at, updated_at)
+     VALUES (?, ?, ?, ?)`,
+  );
+  insertRole.run('admin', '系统管理员', now, now);
+  insertRole.run('viewer', '只读观察者', now, now);
+
+  const adminRole = db.prepare('SELECT id FROM auth_roles WHERE name = ?').get('admin');
+  const viewerRole = db.prepare('SELECT id FROM auth_roles WHERE name = ?').get('viewer');
+  const permRows = db.prepare('SELECT id, code FROM auth_permissions').all();
+
+  if (adminRole) {
+    const insertRolePerm = db.prepare(
+      `INSERT OR IGNORE INTO auth_role_permissions(role_id, permission_id, created_at)
+       VALUES (?, ?, ?)`,
+    );
+    permRows.forEach((perm) => insertRolePerm.run(adminRole.id, perm.id, now));
+  }
+
+  if (viewerRole) {
+    const viewerPerms = permRows.filter((perm) =>
+      [
+        'admin.dashboard.view',
+        'admin.stats.view',
+        'admin.invites.view',
+        'admin.users.view',
+        'admin.roles.view',
+        'admin.security.view',
+        'admin.sessions.view',
+        'admin.tasks.view',
+        'admin.points.view',
+        'admin.store.view',
+        'admin.settings.view',
+      ].includes(perm.code),
+    );
+    const insertRolePerm = db.prepare(
+      `INSERT OR IGNORE INTO auth_role_permissions(role_id, permission_id, created_at)
+       VALUES (?, ?, ?)`,
+    );
+    viewerPerms.forEach((perm) => insertRolePerm.run(viewerRole.id, perm.id, now));
+  }
+}
+
+ensureRbacDefaults();
+
 function ensureAdminAccount() {
   const adminAccount = normalizeAccount(process.env.ADMIN_ACCOUNT || '');
   const adminPassword = String(process.env.ADMIN_PASSWORD || '');
@@ -504,12 +638,27 @@ function ensureAdminAccount() {
       `INSERT INTO auth_users(account, phone, email, wechat_openid, password_hash, display_name, role, status, created_at, updated_at)
        VALUES (?, NULL, NULL, NULL, ?, ?, 'admin', 'active', ?, ?)`,
     ).run(adminAccount, passwordHash, displayName, now, now);
+    const adminRole = db.prepare('SELECT id FROM auth_roles WHERE name = ?').get('admin');
+    if (adminRole) {
+      const newUser = db.prepare('SELECT id FROM auth_users WHERE account = ?').get(adminAccount);
+      if (newUser) {
+        db.prepare(
+          'INSERT OR IGNORE INTO auth_user_roles(user_id, role_id, created_at) VALUES (?, ?, ?)',
+        ).run(newUser.id, adminRole.id, now);
+      }
+    }
     logEvent('auth_admin_created', { account: adminAccount });
     return;
   }
   db.prepare(
     'UPDATE auth_users SET password_hash = ?, role = ?, display_name = ?, status = ?, updated_at = ? WHERE id = ?',
   ).run(passwordHash, 'admin', displayName, 'active', now, existing.id);
+  const adminRole = db.prepare('SELECT id FROM auth_roles WHERE name = ?').get('admin');
+  if (adminRole) {
+    db.prepare(
+      'INSERT OR IGNORE INTO auth_user_roles(user_id, role_id, created_at) VALUES (?, ?, ?)',
+    ).run(existing.id, adminRole.id, now);
+  }
   logEvent('auth_admin_updated', { account: adminAccount, id: existing.id });
 }
 
@@ -1315,6 +1464,8 @@ app.post('/auth/login/phone', (req, res) => {
         phone: user.phone,
         account: user.account,
         role: user.role,
+        roles: getUserRoles(user.id),
+        permissions: getUserPermissions(user.id),
         display_name: user.display_name,
         status: user.status,
       },
@@ -1355,6 +1506,8 @@ app.post('/auth/login/wechat', (req, res) => {
         id: user.id,
         account: user.account,
         role: user.role,
+        roles: getUserRoles(user.id),
+        permissions: getUserPermissions(user.id),
         wechat_openid: user.wechat_openid,
         display_name: user.display_name,
         status: user.status,
@@ -1557,13 +1710,15 @@ app.post('/auth/login/account', (req, res) => {
         display_name: user.display_name,
         status: user.status,
         role: user.role,
+        roles: getUserRoles(user.id),
+        permissions: getUserPermissions(user.id),
       },
     },
   });
 });
 
 app.post('/admin/invite-codes', (req, res) => {
-  const session = requireAdmin(req, res);
+  const session = requirePermission(req, res, 'admin.invites.manage');
   if (!session) return;
   const count = Math.max(1, Math.min(50, Number(req.body?.count || 1)));
   const usageLimit = Math.max(1, Math.min(10, Number(req.body?.usage_limit || 1)));
@@ -1602,7 +1757,7 @@ app.post('/admin/invite-codes', (req, res) => {
 });
 
 app.get('/admin/invite-codes', (req, res) => {
-  const session = requireAdmin(req, res);
+  const session = requirePermission(req, res, 'admin.invites.view');
   if (!session) return;
   const status = String(req.query?.status || '').trim();
   const limit = Math.max(1, Math.min(200, Number(req.query?.limit || 50)));
@@ -1615,7 +1770,7 @@ app.get('/admin/invite-codes', (req, res) => {
 });
 
 app.post('/admin/invite-codes/disable', (req, res) => {
-  const session = requireAdmin(req, res);
+  const session = requirePermission(req, res, 'admin.invites.manage');
   if (!session) return;
   const code = normalizeInviteCode(req.body?.code);
   if (!code) {
@@ -1627,6 +1782,155 @@ app.post('/admin/invite-codes/disable', (req, res) => {
   }
   db.prepare('UPDATE auth_invite_codes SET status = ? WHERE id = ?').run('disabled', row.id);
   res.json({ code: 200, message: '邀请码已禁用', result: { code } });
+});
+
+app.get('/admin/permissions', (req, res) => {
+  const session = requirePermission(req, res, 'admin.roles.view');
+  if (!session) return;
+  const rows = db.prepare('SELECT * FROM auth_permissions ORDER BY code ASC').all();
+  res.json({ code: 200, message: 'ok', result: rows });
+});
+
+app.get('/admin/roles', (req, res) => {
+  const session = requirePermission(req, res, 'admin.roles.view');
+  if (!session) return;
+  const roles = db.prepare('SELECT * FROM auth_roles ORDER BY id ASC').all();
+  const rolePerms = db.prepare(
+    `SELECT rp.role_id, p.code
+     FROM auth_role_permissions rp
+     JOIN auth_permissions p ON p.id = rp.permission_id`,
+  ).all();
+  const roleMap = new Map();
+  roles.forEach((role) => roleMap.set(role.id, { ...role, permissions: [] }));
+  rolePerms.forEach((row) => {
+    const target = roleMap.get(row.role_id);
+    if (target) target.permissions.push(row.code);
+  });
+  res.json({ code: 200, message: 'ok', result: Array.from(roleMap.values()) });
+});
+
+app.post('/admin/roles', (req, res) => {
+  const session = requirePermission(req, res, 'admin.roles.manage');
+  if (!session) return;
+  const { name, description = null, permission_codes = [] } = req.body || {};
+  const normalizedName = String(name || '').trim();
+  if (!normalizedName) {
+    return res.status(400).json({ code: 400, message: '角色名称不能为空', result: null });
+  }
+  const now = nowIso();
+  const info = db.prepare(
+    `INSERT INTO auth_roles(name, description, created_at, updated_at)
+     VALUES (?, ?, ?, ?)`,
+  ).run(normalizedName, description, now, now);
+
+  const roleId = info.lastInsertRowid;
+  const permRows = db.prepare(
+    `SELECT id, code FROM auth_permissions WHERE code IN (${permission_codes.map(() => '?').join(',') || "''"})`,
+  ).all(...permission_codes);
+  const insertRolePerm = db.prepare(
+    `INSERT OR IGNORE INTO auth_role_permissions(role_id, permission_id, created_at)
+     VALUES (?, ?, ?)`,
+  );
+  permRows.forEach((perm) => insertRolePerm.run(roleId, perm.id, now));
+  res.json({ code: 200, message: '角色创建成功', result: { id: roleId } });
+});
+
+app.put('/admin/roles/:id', (req, res) => {
+  const session = requirePermission(req, res, 'admin.roles.manage');
+  if (!session) return;
+  const roleId = Number(req.params.id);
+  if (!roleId) {
+    return res.status(400).json({ code: 400, message: '角色 id 非法', result: null });
+  }
+  const { name, description = null, permission_codes = [] } = req.body || {};
+  const role = db.prepare('SELECT * FROM auth_roles WHERE id = ?').get(roleId);
+  if (!role) {
+    return res.status(404).json({ code: 404, message: '角色不存在', result: null });
+  }
+  const now = nowIso();
+  if (name) {
+    db.prepare('UPDATE auth_roles SET name = ?, description = ?, updated_at = ? WHERE id = ?')
+      .run(String(name).trim(), description, now, roleId);
+  } else if (description !== null) {
+    db.prepare('UPDATE auth_roles SET description = ?, updated_at = ? WHERE id = ?')
+      .run(description, now, roleId);
+  }
+  db.prepare('DELETE FROM auth_role_permissions WHERE role_id = ?').run(roleId);
+  const permRows = db.prepare(
+    `SELECT id, code FROM auth_permissions WHERE code IN (${permission_codes.map(() => '?').join(',') || "''"})`,
+  ).all(...permission_codes);
+  const insertRolePerm = db.prepare(
+    `INSERT OR IGNORE INTO auth_role_permissions(role_id, permission_id, created_at)
+     VALUES (?, ?, ?)`,
+  );
+  permRows.forEach((perm) => insertRolePerm.run(roleId, perm.id, now));
+  res.json({ code: 200, message: '角色更新成功', result: { id: roleId } });
+});
+
+app.delete('/admin/roles/:id', (req, res) => {
+  const session = requirePermission(req, res, 'admin.roles.manage');
+  if (!session) return;
+  const roleId = Number(req.params.id);
+  if (!roleId) {
+    return res.status(400).json({ code: 400, message: '角色 id 非法', result: null });
+  }
+  const role = db.prepare('SELECT * FROM auth_roles WHERE id = ?').get(roleId);
+  if (!role) {
+    return res.status(404).json({ code: 404, message: '角色不存在', result: null });
+  }
+  if (role.name === 'admin') {
+    return res.status(403).json({ code: 403, message: '不可删除管理员角色', result: null });
+  }
+  db.prepare('DELETE FROM auth_role_permissions WHERE role_id = ?').run(roleId);
+  db.prepare('DELETE FROM auth_user_roles WHERE role_id = ?').run(roleId);
+  db.prepare('DELETE FROM auth_roles WHERE id = ?').run(roleId);
+  res.json({ code: 200, message: '角色删除成功', result: { id: roleId } });
+});
+
+app.get('/admin/users', (req, res) => {
+  const session = requirePermission(req, res, 'admin.users.view');
+  if (!session) return;
+  const limit = Math.max(1, Math.min(200, Number(req.query?.limit || 100)));
+  const users = db.prepare(
+    `SELECT id, account, phone, email, display_name, role, status, created_at, updated_at
+     FROM auth_users ORDER BY id DESC LIMIT ?`,
+  ).all(limit);
+  const roleRows = db.prepare(
+    `SELECT ur.user_id, r.id AS role_id, r.name
+     FROM auth_user_roles ur
+     JOIN auth_roles r ON r.id = ur.role_id`,
+  ).all();
+  const roleMap = new Map();
+  roleRows.forEach((row) => {
+    if (!roleMap.has(row.user_id)) roleMap.set(row.user_id, []);
+    roleMap.get(row.user_id).push({ id: row.role_id, name: row.name });
+  });
+  const result = users.map((user) => ({
+    ...user,
+    roles: roleMap.get(user.id) || [],
+  }));
+  res.json({ code: 200, message: 'ok', result });
+});
+
+app.post('/admin/users/:id/roles', (req, res) => {
+  const session = requirePermission(req, res, 'admin.roles.manage');
+  if (!session) return;
+  const userId = Number(req.params.id);
+  if (!userId) {
+    return res.status(400).json({ code: 400, message: '用户 id 非法', result: null });
+  }
+  const roleIds = Array.isArray(req.body?.role_ids) ? req.body.role_ids : [];
+  const roles = db.prepare(
+    `SELECT id FROM auth_roles WHERE id IN (${roleIds.map(() => '?').join(',') || "''"})`,
+  ).all(...roleIds);
+  const now = nowIso();
+  db.prepare('DELETE FROM auth_user_roles WHERE user_id = ?').run(userId);
+  const insert = db.prepare(
+    `INSERT OR IGNORE INTO auth_user_roles(user_id, role_id, created_at)
+     VALUES (?, ?, ?)`,
+  );
+  roles.forEach((role) => insert.run(userId, role.id, now));
+  res.json({ code: 200, message: '用户角色更新成功', result: { user_id: userId } });
 });
 
 app.post('/auth/email/send-code', (req, res) => {
@@ -1972,6 +2276,8 @@ app.post('/auth/login/phone-code', (req, res) => {
         phone: userForPhone.phone,
         account: userForPhone.account,
         role: userForPhone.role,
+        roles: getUserRoles(userForPhone.id),
+        permissions: getUserPermissions(userForPhone.id),
         display_name: userForPhone.display_name,
         status: userForPhone.status,
       },
@@ -2096,6 +2402,8 @@ app.post('/auth/login/email-code', (req, res) => {
         email: userForEmail.email,
         account: userForEmail.account,
         role: userForEmail.role,
+        roles: getUserRoles(userForEmail.id),
+        permissions: getUserPermissions(userForEmail.id),
         display_name: userForEmail.display_name,
         status: userForEmail.status,
       },
@@ -2198,6 +2506,8 @@ app.post('/auth/register/phone-code', (req, res) => {
         phone: user.phone,
         account: user.account,
         role: user.role,
+        roles: getUserRoles(user.id),
+        permissions: getUserPermissions(user.id),
         display_name: user.display_name,
         status: user.status,
       },
@@ -2300,6 +2610,8 @@ app.post('/auth/register/email-code', (req, res) => {
         email: user.email,
         account: user.account,
         role: user.role,
+        roles: getUserRoles(user.id),
+        permissions: getUserPermissions(user.id),
         display_name: user.display_name,
         status: user.status,
       },
@@ -2345,6 +2657,8 @@ app.get('/auth/session', (req, res) => {
         email: session.email,
         account: session.account,
         role: session.role,
+        roles: getUserRoles(session.user_id),
+        permissions: getUserPermissions(session.user_id),
         wechat_openid: session.wechat_openid,
         status: session.status,
       },
@@ -2378,6 +2692,10 @@ app.get('/export/snapshot', (req, res) => {
     auth_security_events: db.prepare('SELECT * FROM auth_security_events ORDER BY id DESC LIMIT 500').all(),
     auth_email_codes: db.prepare('SELECT * FROM auth_email_codes ORDER BY id DESC LIMIT 200').all(),
     auth_invite_codes: db.prepare('SELECT * FROM auth_invite_codes ORDER BY id DESC LIMIT 500').all(),
+    auth_roles: db.prepare('SELECT * FROM auth_roles ORDER BY id ASC').all(),
+    auth_permissions: db.prepare('SELECT * FROM auth_permissions ORDER BY id ASC').all(),
+    auth_role_permissions: db.prepare('SELECT * FROM auth_role_permissions ORDER BY role_id ASC').all(),
+    auth_user_roles: db.prepare('SELECT * FROM auth_user_roles ORDER BY user_id ASC').all(),
   };
   res.json({ code: 200, message: '导出快照成功', result });
 });
