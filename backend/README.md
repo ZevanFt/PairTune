@@ -14,6 +14,20 @@ npm install
 npm run dev
 ```
 
+## 部署脚本（推荐）
+初始化管理员账号（交互输入），并启动后端：
+```bash
+cd /home/talent/projects/priority_first
+./backend/scripts/deploy.sh
+```
+
+使用 pm2 启动：
+```bash
+cd /home/talent/projects/priority_first
+./backend/scripts/deploy.sh --pm2
+```
+脚本会写入 `backend/.env.local` 保存管理员账号信息（已加入 `.gitignore`）。
+
 ## 一键可用（推荐）
 你在终端直接执行下面 3 条：
 
@@ -58,6 +72,15 @@ curl http://127.0.0.1:8110/health
 
 ### 数据导出
 - `GET /export/snapshot`
+
+### 认证（账号）
+- `POST /auth/register/account`
+- `POST /auth/login/account`
+
+### 管理员（邀请码）
+- `POST /admin/invite-codes`
+- `GET /admin/invite-codes`
+- `POST /admin/invite-codes/disable`
 
 ## 数据库文件
 - `/home/talent/projects/priority_first/backend/data/priority_first.db`

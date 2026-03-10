@@ -15,6 +15,8 @@ class AuthSession {
     required this.displayName,
     this.phone,
     this.email,
+    this.account,
+    this.role,
     this.wechatOpenid,
   });
 
@@ -25,6 +27,8 @@ class AuthSession {
   final String displayName;
   final String? phone;
   final String? email;
+  final String? account;
+  final String? role;
   final String? wechatOpenid;
 
   static AuthSession fromMap(Map<String, dynamic> map) {
@@ -37,6 +41,8 @@ class AuthSession {
       displayName: user['display_name'] as String? ?? '用户',
       phone: user['phone'] as String?,
       email: user['email'] as String?,
+      account: user['account'] as String?,
+      role: user['role'] as String?,
       wechatOpenid: user['wechat_openid'] as String?,
     );
   }
@@ -127,6 +133,51 @@ class AuthApiService {
     const path = '/auth/login/wechat';
     final uri = _uri(path);
     final payload = {'wechat_code': code, 'display_name': displayName};
+    ApiLogger.request('AuthApi', 'POST', uri, body: jsonEncode(payload));
+    final resp = await _client.post(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(payload),
+    );
+    ApiLogger.response('AuthApi', uri, resp);
+    _ensureOk(resp, path);
+    final data = jsonDecode(resp.body) as Map<String, dynamic>;
+    return AuthSession.fromMap((data['result'] as Map<String, dynamic>));
+  }
+
+  Future<AuthSession> registerWithAccount({
+    required String account,
+    required String password,
+    required String displayName,
+    required String inviteCode,
+  }) async {
+    const path = '/auth/register/account';
+    final uri = _uri(path);
+    final payload = {
+      'account': account,
+      'password': password,
+      'display_name': displayName,
+      'invite_code': inviteCode,
+    };
+    ApiLogger.request('AuthApi', 'POST', uri, body: jsonEncode(payload));
+    final resp = await _client.post(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(payload),
+    );
+    ApiLogger.response('AuthApi', uri, resp);
+    _ensureOk(resp, path);
+    final data = jsonDecode(resp.body) as Map<String, dynamic>;
+    return AuthSession.fromMap((data['result'] as Map<String, dynamic>));
+  }
+
+  Future<AuthSession> loginWithAccount({
+    required String account,
+    required String password,
+  }) async {
+    const path = '/auth/login/account';
+    final uri = _uri(path);
+    final payload = {'account': account, 'password': password};
     ApiLogger.request('AuthApi', 'POST', uri, body: jsonEncode(payload));
     final resp = await _client.post(
       uri,

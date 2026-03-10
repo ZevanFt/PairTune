@@ -19,38 +19,31 @@ class AuthPage extends StatefulWidget {
 class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin {
   late final TabController _tab = TabController(length: 2, vsync: this);
   final _authApi = AuthApiService();
-  final _phone = TextEditingController();
-  final _smsCode = TextEditingController();
-  final _email = TextEditingController();
-  final _emailCode = TextEditingController();
+  final _account = TextEditingController();
   final _password = TextEditingController();
+  final _inviteCode = TextEditingController();
   final _displayName = TextEditingController(text: '新用户');
-  final _wechatCode = TextEditingController();
   bool _loading = false;
   String? _error;
-  String? _debugCodeHint;
 
   @override
   void dispose() {
-    _phone.dispose();
-    _smsCode.dispose();
-    _email.dispose();
-    _emailCode.dispose();
+    _account.dispose();
     _password.dispose();
+    _inviteCode.dispose();
     _displayName.dispose();
-    _wechatCode.dispose();
     _tab.dispose();
     super.dispose();
   }
 
-  Future<void> _loginByPhone() async {
+  Future<void> _loginByAccount() async {
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
-      final session = await _authApi.loginWithPhone(
-        phone: _phone.text.trim(),
+      final session = await _authApi.loginWithAccount(
+        account: _account.text.trim(),
         password: _password.text,
       );
       if (!mounted) return;
@@ -63,172 +56,17 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
     }
   }
 
-  Future<void> _registerByPhone() async {
+  Future<void> _registerByAccount() async {
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
-      await _authApi.registerWithPhone(
-        phone: _phone.text.trim(),
+      final session = await _authApi.registerWithAccount(
+        account: _account.text.trim(),
         password: _password.text,
         displayName: _displayName.text.trim(),
-      );
-      final session = await _authApi.loginWithPhone(
-        phone: _phone.text.trim(),
-        password: _password.text,
-      );
-      if (!mounted) return;
-      widget.onAuthenticated(session.token);
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _error = formatErrorMessage(e));
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  Future<void> _sendCode(String purpose) async {
-    setState(() {
-      _loading = true;
-      _error = null;
-      _debugCodeHint = null;
-    });
-    try {
-      final debugCode = await _authApi.sendPhoneCode(
-        phone: _phone.text.trim(),
-        purpose: purpose,
-      );
-      if (!mounted) return;
-      setState(() => _debugCodeHint = debugCode.isEmpty ? null : debugCode);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('验证码已发送（有效期5分钟）')),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _error = formatErrorMessage(e));
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  Future<void> _sendEmailCode(String purpose) async {
-    setState(() {
-      _loading = true;
-      _error = null;
-      _debugCodeHint = null;
-    });
-    try {
-      final debugCode = await _authApi.sendEmailCode(
-        email: _email.text.trim(),
-        purpose: purpose,
-      );
-      if (!mounted) return;
-      setState(() => _debugCodeHint = debugCode.isEmpty ? null : debugCode);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('邮箱验证码已发送（有效期5分钟）')),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _error = formatErrorMessage(e));
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  Future<void> _loginByPhoneCode() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    try {
-      final session = await _authApi.loginWithPhoneCode(
-        phone: _phone.text.trim(),
-        code: _smsCode.text.trim(),
-      );
-      if (!mounted) return;
-      widget.onAuthenticated(session.token);
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _error = formatErrorMessage(e));
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  Future<void> _registerByPhoneCode() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    try {
-      final session = await _authApi.registerWithPhoneCode(
-        phone: _phone.text.trim(),
-        code: _smsCode.text.trim(),
-        displayName: _displayName.text.trim(),
-        password: _password.text.trim().isEmpty ? null : _password.text.trim(),
-      );
-      if (!mounted) return;
-      widget.onAuthenticated(session.token);
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _error = formatErrorMessage(e));
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  Future<void> _loginByEmailCode() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    try {
-      final session = await _authApi.loginWithEmailCode(
-        email: _email.text.trim(),
-        code: _emailCode.text.trim(),
-      );
-      if (!mounted) return;
-      widget.onAuthenticated(session.token);
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _error = formatErrorMessage(e));
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  Future<void> _registerByEmailCode() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    try {
-      final session = await _authApi.registerWithEmailCode(
-        email: _email.text.trim(),
-        code: _emailCode.text.trim(),
-        displayName: _displayName.text.trim(),
-        password: _password.text.trim().isEmpty ? null : _password.text.trim(),
-      );
-      if (!mounted) return;
-      widget.onAuthenticated(session.token);
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _error = formatErrorMessage(e));
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  Future<void> _loginByWechat() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    try {
-      final session = await _authApi.loginWithWechatCode(
-        code: _wechatCode.text.trim().isEmpty ? 'dev_wechat_code' : _wechatCode.text.trim(),
-        displayName: _displayName.text.trim().isEmpty ? '微信用户' : _displayName.text.trim(),
+        inviteCode: _inviteCode.text.trim(),
       );
       if (!mounted) return;
       widget.onAuthenticated(session.token);
@@ -298,60 +136,34 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
                   _buildErrorCard(_error!),
                   AppSpace.h8,
                 ],
-                if (_debugCodeHint != null) ...[
-                  _buildCodeHintCard(_debugCodeHint!),
-                  AppSpace.h8,
-                ],
                 SizedBox(
-                  height: 460,
+                  height: 420,
                   child: TabBarView(
                     controller: _tab,
                     children: [
                       _AuthPanel(
                         title: '登录',
-                        subtitle: '可用：手机号/邮箱验证码登录、微信码登录（占位）',
-                        primaryLabel: '微信码登录',
-                        secondaryLabel: '手机号验证码登录',
-                        emailLabel: '邮箱验证码登录',
-                        sendCodeLabel: '发送登录验证码',
-                        sendEmailCodeLabel: '发送邮箱验证码',
+                        subtitle: '使用账号与密码登录',
+                        primaryLabel: '账号登录',
                         loading: _loading,
-                        phoneController: _phone,
-                        smsCodeController: _smsCode,
-                        emailController: _email,
-                        emailCodeController: _emailCode,
+                        accountController: _account,
                         passwordController: _password,
                         displayNameController: _displayName,
-                        wechatCodeController: _wechatCode,
-                        onWechat: _loginByWechat,
-                        onPhone: _loginByPhoneCode,
-                        onEmail: _loginByEmailCode,
-                        onPhonePassword: _loginByPhone,
-                        onSendCode: () => _sendCode('login'),
-                        onSendEmailCode: () => _sendEmailCode('login'),
+                        inviteCodeController: _inviteCode,
+                        onPrimary: _loginByAccount,
+                        showInvite: false,
                       ),
                       _AuthPanel(
                         title: '注册',
-                        subtitle: '可用：手机号/邮箱验证码注册，支持设置密码',
-                        primaryLabel: '微信码注册',
-                        secondaryLabel: '手机号验证码注册',
-                        emailLabel: '邮箱验证码注册',
-                        sendCodeLabel: '发送注册验证码',
-                        sendEmailCodeLabel: '发送邮箱验证码',
+                        subtitle: '注册需要邀请码',
+                        primaryLabel: '创建账号',
                         loading: _loading,
-                        phoneController: _phone,
-                        smsCodeController: _smsCode,
-                        emailController: _email,
-                        emailCodeController: _emailCode,
+                        accountController: _account,
                         passwordController: _password,
                         displayNameController: _displayName,
-                        wechatCodeController: _wechatCode,
-                        onWechat: _loginByWechat,
-                        onPhone: _registerByPhoneCode,
-                        onEmail: _registerByEmailCode,
-                        onPhonePassword: _registerByPhone,
-                        onSendCode: () => _sendCode('register'),
-                        onSendEmailCode: () => _sendEmailCode('register'),
+                        inviteCodeController: _inviteCode,
+                        onPrimary: _registerByAccount,
+                        showInvite: true,
                       ),
                     ],
                   ),
@@ -360,7 +172,7 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
                 Center(
                   child: TextButton(
                     onPressed: _loading ? null : () => widget.onAuthenticated('dev_mode_token'),
-                    child: const Text('先体验应用（开发模式）'),
+                    child: const Text('先体验应用（游客模式）'),
                   ),
                 ),
                 const Spacer(),
@@ -387,22 +199,6 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
       ),
     );
   }
-
-  Widget _buildCodeHintCard(String code) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: AppTheme.softAmber,
-        border: Border.all(color: AppTheme.warnBorder),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Text(
-        '开发环境验证码：$code',
-        style: const TextStyle(color: AppTheme.ink, fontSize: 12, fontWeight: FontWeight.w700),
-      ),
-    );
-  }
 }
 
 class _AuthPanel extends StatelessWidget {
@@ -410,47 +206,25 @@ class _AuthPanel extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.primaryLabel,
-    required this.secondaryLabel,
-    required this.emailLabel,
-    required this.sendCodeLabel,
-    required this.sendEmailCodeLabel,
     required this.loading,
-    required this.phoneController,
-    required this.smsCodeController,
-    required this.emailController,
-    required this.emailCodeController,
+    required this.accountController,
     required this.passwordController,
     required this.displayNameController,
-    required this.wechatCodeController,
-    required this.onWechat,
-    required this.onPhone,
-    required this.onEmail,
-    required this.onPhonePassword,
-    required this.onSendCode,
-    required this.onSendEmailCode,
+    required this.inviteCodeController,
+    required this.onPrimary,
+    required this.showInvite,
   });
 
   final String title;
   final String subtitle;
   final String primaryLabel;
-  final String secondaryLabel;
-  final String emailLabel;
-  final String sendCodeLabel;
-  final String sendEmailCodeLabel;
   final bool loading;
-  final TextEditingController phoneController;
-  final TextEditingController smsCodeController;
-  final TextEditingController emailController;
-  final TextEditingController emailCodeController;
+  final TextEditingController accountController;
   final TextEditingController passwordController;
   final TextEditingController displayNameController;
-  final TextEditingController wechatCodeController;
-  final VoidCallback onWechat;
-  final VoidCallback onPhone;
-  final VoidCallback onEmail;
-  final VoidCallback onPhonePassword;
-  final VoidCallback onSendCode;
-  final VoidCallback onSendEmailCode;
+  final TextEditingController inviteCodeController;
+  final VoidCallback onPrimary;
+  final bool showInvite;
 
   @override
   Widget build(BuildContext context) {
@@ -474,12 +248,12 @@ class _AuthPanel extends StatelessWidget {
           ),
           AppSpace.h8,
           TextField(
-            controller: phoneController,
+            controller: accountController,
             enabled: !loading,
-            keyboardType: TextInputType.phone,
+            keyboardType: TextInputType.text,
             decoration: const InputDecoration(
-              labelText: '手机号',
-              hintText: '11位手机号',
+              labelText: '账号',
+              hintText: '4-20位字母/数字/下划线',
             ),
           ),
           AppSpace.h8,
@@ -492,100 +266,24 @@ class _AuthPanel extends StatelessWidget {
               hintText: '至少6位',
             ),
           ),
-          AppSpace.h8,
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: smsCodeController,
-                  enabled: !loading,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: '短信验证码',
-                    hintText: '6位验证码',
-                  ),
-                ),
+          if (showInvite) ...[
+            AppSpace.h8,
+            TextField(
+              controller: inviteCodeController,
+              enabled: !loading,
+              decoration: const InputDecoration(
+                labelText: '邀请码',
+                hintText: '请输入管理员提供的邀请码',
               ),
-              AppSpace.w8,
-              OutlinedButton(
-                onPressed: loading ? null : onSendCode,
-                child: Text(sendCodeLabel),
-              ),
-            ],
-          ),
-          AppSpace.h8,
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: emailController,
-                  enabled: !loading,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(
-                    labelText: '邮箱',
-                    hintText: 'name@example.com',
-                  ),
-                ),
-              ),
-              AppSpace.w8,
-              OutlinedButton(
-                onPressed: loading ? null : onSendEmailCode,
-                child: Text(sendEmailCodeLabel),
-              ),
-            ],
-          ),
-          AppSpace.h8,
-          TextField(
-            controller: emailCodeController,
-            enabled: !loading,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              labelText: '邮箱验证码',
-              hintText: '6位验证码',
             ),
-          ),
-          AppSpace.h8,
-          TextField(
-            controller: wechatCodeController,
-            enabled: !loading,
-            decoration: const InputDecoration(
-              labelText: '微信 code（占位）',
-              hintText: '留空会使用 dev_wechat_code',
-            ),
-          ),
+          ],
           AppSpace.h12,
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
-              onPressed: loading ? null : onWechat,
-              icon: const Icon(Icons.chat_rounded),
+              onPressed: loading ? null : onPrimary,
+              icon: const Icon(Icons.login_rounded),
               label: Text(primaryLabel),
-            ),
-          ),
-          AppSpace.h8,
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: loading ? null : onPhone,
-              icon: const Icon(Icons.phone_iphone_rounded),
-              label: Text(secondaryLabel),
-            ),
-          ),
-          AppSpace.h8,
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: loading ? null : onEmail,
-              icon: const Icon(Icons.alternate_email_rounded),
-              label: Text(emailLabel),
-            ),
-          ),
-          AppSpace.h8,
-          SizedBox(
-            width: double.infinity,
-            child: TextButton(
-              onPressed: loading ? null : onPhonePassword,
-              child: const Text('使用手机号密码方式'),
             ),
           ),
         ],

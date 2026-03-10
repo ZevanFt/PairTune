@@ -465,6 +465,26 @@ flutter run -d 55c83fe9
   - 日志展示增强：错误日志高亮、卡片化可选中文本
 - 验证：`flutter analyze` 通过（No issues found）
 
+## Codex 第二十三轮（2026-03-10）
+- 账号体系与邀请码机制（后端 + 前端）：
+  - 账号注册/登录：`POST /auth/register/account` / `POST /auth/login/account`
+  - 注册必须邀请码：`auth_invite_codes` 表
+  - 管理员接口：`/admin/invite-codes`（生成/查询/禁用）
+  - 账号字段升级：`auth_users.account` / `auth_users.role`
+- 管理员初始化：
+  - 新增部署脚本 `backend/scripts/deploy.sh`（交互输入管理员账号/密码）
+  - 读取 `backend/.env.local` 自动创建管理员
+- 测试：
+  - 新增集成测试 `backend/test/auth_account.test.js`
+  - 沙盒环境默认跳过网络测试（`ALLOW_NETWORK_TESTS=0`）
+- 前端认证页：
+  - 登录仅显示账号+密码
+  - 注册显示账号+密码+邀请码
+  - 游客模式保留
+- 文档归档：
+  - 新增 `docs/AUTH_ROADMAP.md`
+  - 更新 `docs/BACKEND_SCHEMA_AND_API.md` 与 `backend/README.md`
+
 ## Codex UI 第五轮优化（2026-03-09）
 - 已完成弹窗视觉统一：
   - 商城页 `发布商品 / 编辑商品 / 下架确认` 统一改为共用弹窗模板

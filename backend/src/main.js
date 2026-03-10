@@ -1,4 +1,5 @@
 const path = require('path');
+const fs = require('fs');
 const crypto = require('crypto');
 const express = require('express');
 const cors = require('cors');
@@ -6,9 +7,27 @@ const Database = require('better-sqlite3');
 const { createSmsProvider } = require('./sms_provider');
 const { createEmailProvider } = require('./email_provider');
 
+function loadEnvFile() {
+  const envPath = path.join(__dirname, '..', '.env.local');
+  if (!fs.existsSync(envPath)) return;
+  const raw = fs.readFileSync(envPath, 'utf8');
+  raw.split('\n').forEach((line) => {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) return;
+    const idx = trimmed.indexOf('=');
+    if (idx <= 0) return;
+    const key = trimmed.slice(0, idx).trim();
+    const value = trimmed.slice(idx + 1).trim();
+    if (!key || process.env[key] !== undefined) return;
+    process.env[key] = value;
+  });
+}
+
+loadEnvFile();
+
 const app = express();
 const port = process.env.PORT || 8110;
-const dbPath = path.join(__dirname, '..', 'data', 'priority_first.db');
+const dbPath = process.env.DB_PATH || path.join(__dirname, '..', 'data', 'priority_first.db');
 const db = new Database(dbPath);
 const smsProvider = createSmsProvider();
 const emailProvider = createEmailProvider();
@@ -50,6 +69,18 @@ function isEmail(value) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizeEmail(value));
 }
 
+function normalizeAccount(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function isAccount(value) {
+  return /^[a-z0-9_]{4,20}$/.test(normalizeAccount(value));
+}
+
+function normalizeInviteCode(value) {
+  return String(value || '').trim().toUpperCase();
+}
+
 function isStrongPassword(value) {
   return String(value || '').trim().length >= 6;
 }
@@ -67,6 +98,15 @@ function createPhoneCode() {
   return String(crypto.randomInt(0, 1000000)).padStart(6, '0');
 }
 
+function createInviteCode(length = 8) {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let result = '';
+  for (let i = 0; i < length; i += 1) {
+    result += chars[crypto.randomInt(0, chars.length)];
+  }
+  return result;
+}
+
 function shouldExposeDebugCode() {
   if (String(process.env.AUTH_DEBUG_CODE || '').trim() === '1') return true;
   return String(process.env.NODE_ENV || '').trim() !== 'production';
@@ -74,6 +114,22 @@ function shouldExposeDebugCode() {
 
 function nowIso() {
   return new Date().toISOString();
+}
+
+function logEvent(type, detail = {}) {
+  console.log(JSON.stringify({ type, ...detail, ts: nowIso() }));
+}
+
+function isInviteUsable(invite) {
+  if (!invite) return { ok: false, reason: '邀请码不存在' };
+  if (invite.status !== 'active') return { ok: false, reason: '邀请码不可用' };
+  if (invite.expires_at && new Date(invite.expires_at).getTime() < Date.now()) {
+    return { ok: false, reason: '邀请码已过期' };
+  }
+  if (Number(invite.used_count) >= Number(invite.usage_limit)) {
+    return { ok: false, reason: '邀请码已用尽' };
+  }
+  return { ok: true, reason: null };
 }
 
 function getClientKey(req) {
@@ -132,6 +188,55 @@ function writeAuthEvent({ action, phone = null, email = null, clientKey = null, 
     `INSERT INTO auth_security_events(action, phone, email, client_key, success, detail, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
   ).run(action, phone, email, clientKey, success ? 1 : 0, detail, nowIso());
+}
+
+function getAuthToken(req) {
+  const header = String(req.headers.authorization || '');
+  if (header.toLowerCase().startsWith('bearer ')) {
+    return header.slice(7).trim();
+  }
+  if (req.body?.token) return String(req.body.token).trim();
+  if (req.query?.token) return String(req.query.token).trim();
+  return '';
+}
+
+function requireSession(req, res) {
+  const token = getAuthToken(req);
+  if (!token) {
+    res.status(401).json({ code: 401, message: '未登录', result: null });
+    return null;
+  }
+  const session = db.prepare(
+    `SELECT s.token, s.provider, s.owner_hint, s.expires_at, s.user_id,
+            u.display_name, u.phone, u.email, u.account, u.role, u.wechat_openid, u.status
+     FROM auth_sessions s
+     JOIN auth_users u ON u.id = s.user_id
+     WHERE s.token = ?`,
+  ).get(token);
+  if (!session) {
+    res.status(401).json({ code: 401, message: '会话不存在', result: null });
+    return null;
+  }
+  if (new Date(session.expires_at).getTime() < Date.now()) {
+    db.prepare('DELETE FROM auth_sessions WHERE token = ?').run(token);
+    res.status(401).json({ code: 401, message: '会话已过期', result: null });
+    return null;
+  }
+  db.prepare('UPDATE auth_sessions SET last_seen_at = ? WHERE token = ?').run(
+    new Date().toISOString(),
+    token,
+  );
+  return session;
+}
+
+function requireAdmin(req, res) {
+  const session = requireSession(req, res);
+  if (!session) return null;
+  if (session.role !== 'admin') {
+    res.status(403).json({ code: 403, message: '无管理员权限', result: null });
+    return null;
+  }
+  return session;
 }
 
 function ensureSchema() {
@@ -218,11 +323,13 @@ CREATE TABLE IF NOT EXISTS notifications (
 
 CREATE TABLE IF NOT EXISTS auth_users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  account TEXT,
   phone TEXT UNIQUE,
   email TEXT,
   wechat_openid TEXT UNIQUE,
   password_hash TEXT,
   display_name TEXT NOT NULL,
+  role TEXT NOT NULL DEFAULT 'user',
   status TEXT NOT NULL DEFAULT 'active',
   failed_login_count INTEGER NOT NULL DEFAULT 0,
   locked_until TEXT,
@@ -258,6 +365,19 @@ CREATE TABLE IF NOT EXISTS auth_email_codes (
   expires_at TEXT NOT NULL,
   used_at TEXT,
   created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS auth_invite_codes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  code TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'active',
+  usage_limit INTEGER NOT NULL DEFAULT 1,
+  used_count INTEGER NOT NULL DEFAULT 0,
+  created_by INTEGER,
+  used_by INTEGER,
+  created_at TEXT NOT NULL,
+  used_at TEXT,
+  expires_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS auth_security_events (
@@ -299,11 +419,19 @@ CREATE TABLE IF NOT EXISTS auth_security_events (
   }
 
   const authUserColumns = db.prepare("PRAGMA table_info('auth_users')").all();
+  const hasAccount = authUserColumns.some((col) => col.name === 'account');
   const hasEmail = authUserColumns.some((col) => col.name === 'email');
+  const hasRole = authUserColumns.some((col) => col.name === 'role');
   const hasFailedLoginCount = authUserColumns.some((col) => col.name === 'failed_login_count');
   const hasLockedUntil = authUserColumns.some((col) => col.name === 'locked_until');
+  if (!hasAccount) {
+    db.exec('ALTER TABLE auth_users ADD COLUMN account TEXT;');
+  }
   if (!hasEmail) {
     db.exec('ALTER TABLE auth_users ADD COLUMN email TEXT;');
+  }
+  if (!hasRole) {
+    db.exec("ALTER TABLE auth_users ADD COLUMN role TEXT NOT NULL DEFAULT 'user';");
   }
   if (!hasFailedLoginCount) {
     db.exec('ALTER TABLE auth_users ADD COLUMN failed_login_count INTEGER NOT NULL DEFAULT 0;');
@@ -311,6 +439,9 @@ CREATE TABLE IF NOT EXISTS auth_security_events (
   if (!hasLockedUntil) {
     db.exec('ALTER TABLE auth_users ADD COLUMN locked_until TEXT;');
   }
+  db.exec(
+    'CREATE UNIQUE INDEX IF NOT EXISTS idx_auth_users_account_unique ON auth_users(account) WHERE account IS NOT NULL;',
+  );
   db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_auth_users_email_unique ON auth_users(email) WHERE email IS NOT NULL;');
 
   const authEventColumns = db.prepare("PRAGMA table_info('auth_security_events')").all();
@@ -318,6 +449,8 @@ CREATE TABLE IF NOT EXISTS auth_security_events (
   if (!hasEventEmail) {
     db.exec('ALTER TABLE auth_security_events ADD COLUMN email TEXT;');
   }
+
+  db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_auth_invite_codes_code_unique ON auth_invite_codes(code);');
 
   const now = new Date().toISOString();
   db.prepare(
@@ -351,6 +484,36 @@ CREATE TABLE IF NOT EXISTS auth_security_events (
 }
 
 ensureSchema();
+
+function ensureAdminAccount() {
+  const adminAccount = normalizeAccount(process.env.ADMIN_ACCOUNT || '');
+  const adminPassword = String(process.env.ADMIN_PASSWORD || '');
+  if (!adminAccount || !isAccount(adminAccount) || !isStrongPassword(adminPassword)) {
+    logEvent('auth_admin_missing', {
+      account: adminAccount || null,
+      reason: 'invalid-admin-env',
+    });
+    return;
+  }
+  const displayName = String(process.env.ADMIN_DISPLAY_NAME || '管理员').trim() || '管理员';
+  const now = nowIso();
+  const existing = db.prepare('SELECT * FROM auth_users WHERE account = ?').get(adminAccount);
+  const passwordHash = hashPassword(adminPassword);
+  if (!existing) {
+    db.prepare(
+      `INSERT INTO auth_users(account, phone, email, wechat_openid, password_hash, display_name, role, status, created_at, updated_at)
+       VALUES (?, NULL, NULL, NULL, ?, ?, 'admin', 'active', ?, ?)`,
+    ).run(adminAccount, passwordHash, displayName, now, now);
+    logEvent('auth_admin_created', { account: adminAccount });
+    return;
+  }
+  db.prepare(
+    'UPDATE auth_users SET password_hash = ?, role = ?, display_name = ?, status = ?, updated_at = ? WHERE id = ?',
+  ).run(passwordHash, 'admin', displayName, 'active', now, existing.id);
+  logEvent('auth_admin_updated', { account: adminAccount, id: existing.id });
+}
+
+ensureAdminAccount();
 
 function normalizeRepeatType(value) {
   const raw = String(value || 'none').trim();
@@ -1070,7 +1233,7 @@ app.post('/auth/register/phone', (req, res) => {
     now,
     now,
   );
-  const user = db.prepare('SELECT id, phone, wechat_openid, display_name, status, created_at, updated_at FROM auth_users WHERE id = ?')
+  const user = db.prepare('SELECT id, account, role, phone, wechat_openid, display_name, status, created_at, updated_at FROM auth_users WHERE id = ?')
     .get(info.lastInsertRowid);
   res.json({ code: 200, message: '手机号注册成功', result: user });
 });
@@ -1150,6 +1313,8 @@ app.post('/auth/login/phone', (req, res) => {
       user: {
         id: user.id,
         phone: user.phone,
+        account: user.account,
+        role: user.role,
         display_name: user.display_name,
         status: user.status,
       },
@@ -1188,12 +1353,280 @@ app.post('/auth/login/wechat', (req, res) => {
       expires_at: expires,
       user: {
         id: user.id,
+        account: user.account,
+        role: user.role,
         wechat_openid: user.wechat_openid,
         display_name: user.display_name,
         status: user.status,
       },
     },
   });
+});
+
+app.post('/auth/register/account', (req, res) => {
+  const { account, password, display_name = '新用户', invite_code } = req.body || {};
+  const normalizedAccount = normalizeAccount(account);
+  const normalizedInvite = normalizeInviteCode(invite_code);
+  const clientKey = getClientKey(req);
+
+  if (!isAccount(normalizedAccount) || !isStrongPassword(password)) {
+    writeAuthEvent({
+      action: 'register_account_invalid',
+      clientKey,
+      success: 0,
+      detail: 'format-invalid',
+    });
+    return res.status(400).json({ code: 400, message: '账号或密码格式非法', result: null });
+  }
+  if (!normalizedInvite) {
+    return res.status(400).json({ code: 400, message: '邀请码不能为空', result: null });
+  }
+
+  const exists = db.prepare('SELECT id FROM auth_users WHERE account = ?').get(normalizedAccount);
+  if (exists) {
+    writeAuthEvent({
+      action: 'register_account_fail',
+      clientKey,
+      success: 0,
+      detail: 'account-exists',
+    });
+    return res.status(409).json({ code: 409, message: '账号已注册', result: null });
+  }
+
+  const invite = db.prepare('SELECT * FROM auth_invite_codes WHERE code = ?').get(normalizedInvite);
+  const inviteCheck = isInviteUsable(invite);
+  if (!inviteCheck.ok) {
+    writeAuthEvent({
+      action: 'register_account_fail',
+      clientKey,
+      success: 0,
+      detail: `invite-${inviteCheck.reason}`,
+    });
+    return res.status(403).json({ code: 403, message: inviteCheck.reason, result: null });
+  }
+
+  try {
+    const result = db.transaction(() => {
+      const latestInvite = db.prepare('SELECT * FROM auth_invite_codes WHERE code = ?')
+        .get(normalizedInvite);
+      const latestCheck = isInviteUsable(latestInvite);
+      if (!latestCheck.ok) {
+        const error = new Error(latestCheck.reason || '邀请码不可用');
+        error.code = 'invite-invalid';
+        throw error;
+      }
+
+      const now = nowIso();
+      const info = db.prepare(
+        `INSERT INTO auth_users(account, phone, email, wechat_openid, password_hash, display_name, role, status, created_at, updated_at)
+         VALUES (?, NULL, NULL, NULL, ?, ?, 'user', 'active', ?, ?)`,
+      ).run(
+        normalizedAccount,
+        hashPassword(password),
+        String(display_name || '新用户').trim(),
+        now,
+        now,
+      );
+      const newUserId = info.lastInsertRowid;
+      const nextUsedCount = Number(latestInvite.used_count) + 1;
+      const nextStatus = nextUsedCount >= Number(latestInvite.usage_limit) ? 'exhausted' : 'active';
+      db.prepare(
+        `UPDATE auth_invite_codes
+         SET used_count = ?, used_by = ?, used_at = ?, status = ?
+         WHERE id = ?`,
+      ).run(
+        nextUsedCount,
+        newUserId,
+        now,
+        nextStatus,
+        latestInvite.id,
+      );
+
+      const token = createSessionToken();
+      const expires = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30).toISOString();
+      db.prepare(
+        `INSERT INTO auth_sessions(token, user_id, provider, owner_hint, expires_at, created_at, last_seen_at)
+         VALUES (?, ?, 'account', 'me', ?, ?, ?)`,
+      ).run(token, newUserId, expires, now, now);
+
+      return {
+        token,
+        expires_at: expires,
+        user: {
+          id: newUserId,
+          account: normalizedAccount,
+          display_name: String(display_name || '新用户').trim(),
+          status: 'active',
+          role: 'user',
+        },
+      };
+    })();
+
+    writeAuthEvent({
+      action: 'register_account_success',
+      clientKey,
+      success: 1,
+      detail: 'ok',
+    });
+    res.json({ code: 200, message: '账号注册成功', result });
+  } catch (error) {
+    if (error?.code === 'invite-invalid') {
+      res.status(403).json({ code: 403, message: String(error.message), result: null });
+      return;
+    }
+    console.error('[auth] register account failed', error);
+    res.status(500).json({ code: 500, message: '注册失败', result: null });
+  }
+});
+
+app.post('/auth/login/account', (req, res) => {
+  const { account, password } = req.body || {};
+  const normalizedAccount = normalizeAccount(account);
+  const clientKey = getClientKey(req);
+
+  if (!isAccount(normalizedAccount) || !isStrongPassword(password)) {
+    writeAuthEvent({
+      action: 'login_account_invalid',
+      clientKey,
+      success: 0,
+      detail: 'format-invalid',
+    });
+    return res.status(400).json({ code: 400, message: '账号或密码格式非法', result: null });
+  }
+
+  const clientRecentFails = countRecentAuthEvents({
+    action: 'login_account_fail',
+    clientKey,
+    windowSeconds: 10 * 60,
+  });
+  if (clientRecentFails >= 20) {
+    return res.status(429).json({ code: 429, message: '尝试次数过多，请稍后再试', result: null });
+  }
+
+  const user = db.prepare('SELECT * FROM auth_users WHERE account = ? AND status = ?')
+    .get(normalizedAccount, 'active');
+  if (user && user.locked_until && new Date(user.locked_until).getTime() > Date.now()) {
+    return res.status(423).json({ code: 423, message: '账号已临时锁定，请稍后再试', result: null });
+  }
+  if (!user || user.password_hash !== hashPassword(password)) {
+    if (user) {
+      const nextFail = (Number(user.failed_login_count) || 0) + 1;
+      const lockUntil = nextFail >= 5
+        ? new Date(Date.now() + 15 * 60 * 1000).toISOString()
+        : null;
+      db.prepare(
+        'UPDATE auth_users SET failed_login_count = ?, locked_until = ?, updated_at = ? WHERE id = ?',
+      ).run(nextFail, lockUntil, nowIso(), user.id);
+    }
+    writeAuthEvent({
+      action: 'login_account_fail',
+      clientKey,
+      success: 0,
+      detail: 'credential-mismatch',
+    });
+    return res.status(401).json({ code: 401, message: '账号或密码错误', result: null });
+  }
+
+  const now = nowIso();
+  const expires = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30).toISOString();
+  const token = createSessionToken();
+  db.prepare(
+    'UPDATE auth_users SET failed_login_count = 0, locked_until = NULL, updated_at = ? WHERE id = ?',
+  ).run(now, user.id);
+  db.prepare(
+    `INSERT INTO auth_sessions(token, user_id, provider, owner_hint, expires_at, created_at, last_seen_at)
+     VALUES (?, ?, 'account', 'me', ?, ?, ?)`,
+  ).run(token, user.id, expires, now, now);
+  writeAuthEvent({
+    action: 'login_account_success',
+    clientKey,
+    success: 1,
+    detail: 'ok',
+  });
+
+  res.json({
+    code: 200,
+    message: '账号登录成功',
+    result: {
+      token,
+      provider: 'account',
+      expires_at: expires,
+      user: {
+        id: user.id,
+        account: user.account,
+        display_name: user.display_name,
+        status: user.status,
+        role: user.role,
+      },
+    },
+  });
+});
+
+app.post('/admin/invite-codes', (req, res) => {
+  const session = requireAdmin(req, res);
+  if (!session) return;
+  const count = Math.max(1, Math.min(50, Number(req.body?.count || 1)));
+  const usageLimit = Math.max(1, Math.min(10, Number(req.body?.usage_limit || 1)));
+  const expiresAt = req.body?.expires_at ? new Date(req.body.expires_at).toISOString() : null;
+  const now = nowIso();
+  const codes = [];
+
+  const insert = db.prepare(
+    `INSERT INTO auth_invite_codes(code, status, usage_limit, used_count, created_by, used_by, created_at, used_at, expires_at)
+     VALUES (?, 'active', ?, 0, ?, NULL, ?, NULL, ?)`,
+  );
+
+  for (let i = 0; i < count; i += 1) {
+    let code;
+    let tries = 0;
+    while (tries < 20) {
+      code = createInviteCode(8);
+      try {
+        insert.run(code, usageLimit, session.user_id, now, expiresAt);
+        codes.push(code);
+        break;
+      } catch (error) {
+        tries += 1;
+        if (tries >= 20) {
+          console.error('[auth] invite code create failed', error);
+        }
+      }
+    }
+  }
+
+  res.json({
+    code: 200,
+    message: '邀请码创建成功',
+    result: { codes, usage_limit: usageLimit, expires_at: expiresAt },
+  });
+});
+
+app.get('/admin/invite-codes', (req, res) => {
+  const session = requireAdmin(req, res);
+  if (!session) return;
+  const status = String(req.query?.status || '').trim();
+  const limit = Math.max(1, Math.min(200, Number(req.query?.limit || 50)));
+  const rows = status
+    ? db.prepare(
+      'SELECT * FROM auth_invite_codes WHERE status = ? ORDER BY id DESC LIMIT ?',
+    ).all(status, limit)
+    : db.prepare('SELECT * FROM auth_invite_codes ORDER BY id DESC LIMIT ?').all(limit);
+  res.json({ code: 200, message: 'ok', result: rows });
+});
+
+app.post('/admin/invite-codes/disable', (req, res) => {
+  const session = requireAdmin(req, res);
+  if (!session) return;
+  const code = normalizeInviteCode(req.body?.code);
+  if (!code) {
+    return res.status(400).json({ code: 400, message: 'code 不能为空', result: null });
+  }
+  const row = db.prepare('SELECT * FROM auth_invite_codes WHERE code = ?').get(code);
+  if (!row) {
+    return res.status(404).json({ code: 404, message: '邀请码不存在', result: null });
+  }
+  db.prepare('UPDATE auth_invite_codes SET status = ? WHERE id = ?').run('disabled', row.id);
+  res.json({ code: 200, message: '邀请码已禁用', result: { code } });
 });
 
 app.post('/auth/email/send-code', (req, res) => {
@@ -1537,6 +1970,8 @@ app.post('/auth/login/phone-code', (req, res) => {
       user: {
         id: userForPhone.id,
         phone: userForPhone.phone,
+        account: userForPhone.account,
+        role: userForPhone.role,
         display_name: userForPhone.display_name,
         status: userForPhone.status,
       },
@@ -1659,6 +2094,8 @@ app.post('/auth/login/email-code', (req, res) => {
       user: {
         id: userForEmail.id,
         email: userForEmail.email,
+        account: userForEmail.account,
+        role: userForEmail.role,
         display_name: userForEmail.display_name,
         status: userForEmail.status,
       },
@@ -1759,6 +2196,8 @@ app.post('/auth/register/phone-code', (req, res) => {
       user: {
         id: user.id,
         phone: user.phone,
+        account: user.account,
+        role: user.role,
         display_name: user.display_name,
         status: user.status,
       },
@@ -1859,6 +2298,8 @@ app.post('/auth/register/email-code', (req, res) => {
       user: {
         id: user.id,
         email: user.email,
+        account: user.account,
+        role: user.role,
         display_name: user.display_name,
         status: user.status,
       },
@@ -1873,7 +2314,7 @@ app.get('/auth/session', (req, res) => {
   }
   const session = db.prepare(
     `SELECT s.token, s.provider, s.owner_hint, s.expires_at, s.user_id,
-            u.display_name, u.phone, u.email, u.wechat_openid, u.status
+            u.display_name, u.phone, u.email, u.account, u.role, u.wechat_openid, u.status
      FROM auth_sessions s
      JOIN auth_users u ON u.id = s.user_id
      WHERE s.token = ?`,
@@ -1902,6 +2343,8 @@ app.get('/auth/session', (req, res) => {
         display_name: session.display_name,
         phone: session.phone,
         email: session.email,
+        account: session.account,
+        role: session.role,
         wechat_openid: session.wechat_openid,
         status: session.status,
       },
@@ -1930,14 +2373,24 @@ app.get('/export/snapshot', (req, res) => {
     profiles: db.prepare('SELECT * FROM profiles ORDER BY owner ASC').all(),
     settings: db.prepare('SELECT * FROM app_settings ORDER BY owner ASC').all(),
     notifications: db.prepare('SELECT * FROM notifications ORDER BY id DESC').all(),
-    auth_users: db.prepare('SELECT id, phone, email, wechat_openid, display_name, status, failed_login_count, locked_until, created_at, updated_at FROM auth_users ORDER BY id DESC').all(),
+    auth_users: db.prepare('SELECT id, account, phone, email, wechat_openid, display_name, role, status, failed_login_count, locked_until, created_at, updated_at FROM auth_users ORDER BY id DESC').all(),
     auth_sessions: db.prepare('SELECT token, user_id, provider, owner_hint, expires_at, created_at, last_seen_at FROM auth_sessions ORDER BY created_at DESC').all(),
     auth_security_events: db.prepare('SELECT * FROM auth_security_events ORDER BY id DESC LIMIT 500').all(),
     auth_email_codes: db.prepare('SELECT * FROM auth_email_codes ORDER BY id DESC LIMIT 200').all(),
+    auth_invite_codes: db.prepare('SELECT * FROM auth_invite_codes ORDER BY id DESC LIMIT 500').all(),
   };
   res.json({ code: 200, message: '导出快照成功', result });
 });
 
-app.listen(port, () => {
-  console.log(`[priority_first_backend] running at http://0.0.0.0:${port}`);
-});
+const host = process.env.HOST || '0.0.0.0';
+const socketPath = process.env.LISTEN_SOCKET || '';
+const isSocketPath = socketPath.startsWith('/') || socketPath.endsWith('.sock');
+if (isSocketPath) {
+  app.listen(socketPath, () => {
+    console.log(`[priority_first_backend] running at unix:${socketPath}`);
+  });
+} else {
+  app.listen(port, host, () => {
+    console.log(`[priority_first_backend] running at http://${host}:${port}`);
+  });
+}

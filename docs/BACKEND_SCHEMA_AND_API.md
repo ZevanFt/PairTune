@@ -91,13 +91,15 @@
 - `created_at` TEXT NOT NULL
 
 ### 2.9 `auth_users`（新增）
-账号用户表（手机号 / 邮箱 / 微信）
+账号用户表（账号 / 手机号 / 邮箱 / 微信）
 - `id` INTEGER PK AUTOINCREMENT
+- `account` TEXT UNIQUE (可空)
 - `phone` TEXT UNIQUE (可空)
 - `email` TEXT UNIQUE (可空)
 - `wechat_openid` TEXT UNIQUE (可空)
 - `password_hash` TEXT (可空，微信账号可无密码)
 - `display_name` TEXT NOT NULL
+- `role` TEXT NOT NULL DEFAULT `user`
 - `status` TEXT NOT NULL DEFAULT `active`
 - `failed_login_count` INTEGER NOT NULL DEFAULT 0
 - `locked_until` TEXT
@@ -108,7 +110,7 @@
 登录会话表（Token）
 - `token` TEXT PK
 - `user_id` INTEGER NOT NULL
-- `provider` TEXT NOT NULL (`phone|phone_code|email_code|wechat`)
+- `provider` TEXT NOT NULL (`account|phone|phone_code|email_code|wechat`)
 - `owner_hint` TEXT NOT NULL DEFAULT `me`
 - `expires_at` TEXT NOT NULL
 - `created_at` TEXT NOT NULL
@@ -144,6 +146,19 @@
 - `success` INTEGER NOT NULL DEFAULT 0
 - `detail` TEXT
 - `created_at` TEXT NOT NULL
+
+### 2.14 `auth_invite_codes`（新增）
+注册邀请码
+- `id` INTEGER PK AUTOINCREMENT
+- `code` TEXT UNIQUE NOT NULL
+- `status` TEXT NOT NULL DEFAULT `active`（`active|disabled|exhausted`）
+- `usage_limit` INTEGER NOT NULL DEFAULT 1
+- `used_count` INTEGER NOT NULL DEFAULT 0
+- `created_by` INTEGER
+- `used_by` INTEGER
+- `created_at` TEXT NOT NULL
+- `used_at` TEXT
+- `expires_at` TEXT
 
 ## 3. API 清单
 
@@ -191,9 +206,16 @@
 
 ### 3.6 快照导出
 - `GET /export/snapshot`
-  - 现包含：`tasks/points/ledger/products/owned_items/profiles/settings/notifications/auth_users/auth_sessions/auth_security_events/auth_email_codes`
+  - 现包含：`tasks/points/ledger/products/owned_items/profiles/settings/notifications/auth_users/auth_sessions/auth_security_events/auth_email_codes/auth_invite_codes`
 
 ### 3.7 认证（新增）
+- `POST /auth/register/account`
+  - 入参：`account/password/display_name/invite_code`
+  - 规则：账号 4-20 位 `a-z0-9_`，密码至少 6 位
+  - 说明：注册成功后直接签发会话
+- `POST /auth/login/account`
+  - 入参：`account/password`
+  - 返回：`token/provider/expires_at/user`
 - `POST /auth/register/phone`
   - 入参：`phone/password/display_name`
   - 规则：手机号必须 11 位（`1xxxxxxxxxx`），密码至少 6 位
@@ -233,6 +255,8 @@
   - 入参：`token`
 
 认证相关环境变量：
+- 后端启动会读取 `backend/.env.local`（部署脚本写入）
+- `ADMIN_ACCOUNT` / `ADMIN_PASSWORD` / `ADMIN_DISPLAY_NAME`
 - `SMS_PROVIDER=mock|tencent`
 - `AUTH_DEBUG_CODE=1`（仅在需要联调时显式开启验证码明文回传）
 - `NODE_ENV=production` 时默认关闭 `debug_code` 回传
@@ -250,8 +274,19 @@
     - `EMAIL_SMTP_PORT`（默认 25）
     - `EMAIL_SMTP_USER` / `EMAIL_SMTP_PASS`（可选）
     - `EMAIL_SMTP_SECURE`（true/false）
-    - `EMAIL_FROM`（发件人）
-    - `EMAIL_SUBJECT`（可选，邮件主题）
+  - `EMAIL_FROM`（发件人）
+  - `EMAIL_SUBJECT`（可选，邮件主题）
+
+### 3.8 管理员（新增）
+- `POST /admin/invite-codes`
+  - 入参：`count(1-50)/usage_limit(1-10)/expires_at?`
+  - 说明：生成邀请码列表
+- `GET /admin/invite-codes`
+  - 入参：`status?`、`limit?`
+  - 说明：查询邀请码
+- `POST /admin/invite-codes/disable`
+  - 入参：`code`
+  - 说明：禁用邀请码
 
 ## 4. 请求示例
 
