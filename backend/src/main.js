@@ -2700,6 +2700,14 @@ app.get('/export/snapshot', (req, res) => {
   res.json({ code: 200, message: '导出快照成功', result });
 });
 
+const adminDist = path.join(__dirname, '..', 'public', 'admin');
+if (fs.existsSync(adminDist)) {
+  app.use('/admin', express.static(adminDist));
+  app.get('/admin/*', (req, res) => {
+    res.sendFile(path.join(adminDist, 'index.html'));
+  });
+}
+
 const host = process.env.HOST || '0.0.0.0';
 const socketPath = process.env.LISTEN_SOCKET || '';
 const isSocketPath = socketPath.startsWith('/') || socketPath.endsWith('.sock');

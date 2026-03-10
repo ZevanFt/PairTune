@@ -4,3 +4,4 @@ backend/data/*.db-shm
 backend/data/*.db-wal
 backend/.env.local
 backend/.env.*
+backend/public/admin/

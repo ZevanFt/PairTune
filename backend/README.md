@@ -28,6 +28,21 @@ cd /home/talent/projects/priority_first
 ```
 脚本会写入 `backend/.env.local` 保存管理员账号信息（已加入 `.gitignore`）。
 
+## 管理后台（React）
+开发模式：
+```bash
+cd /home/talent/projects/priority_first/admin
+npm install
+npm run dev
+```
+
+生产构建（由后端统一提供）：
+```bash
+cd /home/talent/projects/priority_first/admin
+npm run build
+```
+构建产物输出到 `backend/public/admin`，访问 `http://127.0.0.1:8110/admin`。
+
 ## 一键可用（推荐）
 你在终端直接执行下面 3 条：
 

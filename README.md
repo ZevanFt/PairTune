@@ -40,6 +40,13 @@ npm install
 npm run dev
 ```
 
+生产构建（由后端统一提供）：
+```bash
+cd /home/talent/projects/priority_first/admin
+npm run build
+```
+构建产物将输出到 `backend/public/admin`，由后端 `http://127.0.0.1:8110/admin` 提供访问。
+
 ## 管理员初始化（推荐）
 使用脚本交互输入管理员账号和密码：
 ```bash
