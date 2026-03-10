@@ -98,6 +98,8 @@
 - `password_hash` TEXT (可空，微信账号可无密码)
 - `display_name` TEXT NOT NULL
 - `status` TEXT NOT NULL DEFAULT `active`
+- `failed_login_count` INTEGER NOT NULL DEFAULT 0
+- `locked_until` TEXT
 - `created_at` TEXT NOT NULL
 - `updated_at` TEXT NOT NULL
 
@@ -110,6 +112,26 @@
 - `expires_at` TEXT NOT NULL
 - `created_at` TEXT NOT NULL
 - `last_seen_at` TEXT NOT NULL
+
+### 2.11 `auth_phone_codes`（新增）
+手机验证码表
+- `id` INTEGER PK AUTOINCREMENT
+- `phone` TEXT NOT NULL
+- `code` TEXT NOT NULL
+- `purpose` TEXT NOT NULL (`login|register`)
+- `expires_at` TEXT NOT NULL
+- `used_at` TEXT
+- `created_at` TEXT NOT NULL
+
+### 2.12 `auth_security_events`（新增）
+认证安全事件审计（限流/失败统计）
+- `id` INTEGER PK AUTOINCREMENT
+- `action` TEXT NOT NULL
+- `phone` TEXT
+- `client_key` TEXT
+- `success` INTEGER NOT NULL DEFAULT 0
+- `detail` TEXT
+- `created_at` TEXT NOT NULL
 
 ## 3. API 清单
 
@@ -157,7 +179,7 @@
 
 ### 3.6 快照导出
 - `GET /export/snapshot`
-  - 现包含：`tasks/points/ledger/products/owned_items/profiles/settings/notifications/auth_users/auth_sessions`
+  - 现包含：`tasks/points/ledger/products/owned_items/profiles/settings/notifications/auth_users/auth_sessions/auth_security_events`
 
 ### 3.7 认证（新增）
 - `POST /auth/register/phone`
@@ -168,11 +190,12 @@
   - 返回：`token/provider/expires_at/user`
 - `POST /auth/phone/send-code`
   - 入参：`phone/purpose(login|register)`
-  - 限流：同手机号 60 秒内不可重复发码
+  - 限流：同手机号 60 秒内不可重复发码；同手机号 10 分钟最多 5 次；同客户端 10 分钟最多 12 次
   - 过期：验证码 5 分钟有效
 - `POST /auth/login/phone-code`
   - 入参：`phone/code`
   - 说明：验证码登录（provider=`phone_code`）
+  - 安全：同客户端 10 分钟失败过多会被限流；同账号连续失败 5 次锁定 15 分钟
 - `POST /auth/register/phone-code`
   - 入参：`phone/code/display_name/password?`
   - 说明：验证码注册成功后直接签发会话
@@ -220,7 +243,7 @@ POST /notifications/mark-read
 ```
 
 ## 5. 当前风险与待升级
-- 已有基础账号会话模型（`auth_users/auth_sessions`），但仍未接入真实短信验证码与微信 OAuth
+- 已有基础账号会话模型与验证码流程（`auth_users/auth_sessions/auth_phone_codes`），但仍未接入真实短信网关与微信 OAuth
 - `owner` 参数模型仍用于业务视角切换，生产环境建议替换为“会话用户 + 关系绑定”模型
 - 缺少接口级测试与迁移版本管理（目前为启动时自动建表）
 - 建议下一阶段引入：

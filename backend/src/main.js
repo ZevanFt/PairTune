@@ -55,6 +55,54 @@ function createPhoneCode() {
   return String(crypto.randomInt(0, 1000000)).padStart(6, '0');
 }
 
+function nowIso() {
+  return new Date().toISOString();
+}
+
+function getClientKey(req) {
+  const ip = String(req.headers['x-forwarded-for'] || req.ip || 'unknown').split(',')[0].trim();
+  const deviceId = String(req.headers['x-device-id'] || '').trim().slice(0, 64);
+  const ua = String(req.headers['user-agent'] || '').trim().slice(0, 120);
+  return `${ip}|${deviceId || 'no-device'}|${ua || 'no-ua'}`;
+}
+
+function countRecentAuthEvents({ action, phone = null, clientKey = null, windowSeconds = 600 }) {
+  const since = new Date(Date.now() - windowSeconds * 1000).toISOString();
+  if (phone && clientKey) {
+    return db.prepare(
+      `SELECT COUNT(1) AS count
+       FROM auth_security_events
+       WHERE action = ? AND phone = ? AND client_key = ? AND created_at >= ?`,
+    ).get(action, phone, clientKey, since).count;
+  }
+  if (phone) {
+    return db.prepare(
+      `SELECT COUNT(1) AS count
+       FROM auth_security_events
+       WHERE action = ? AND phone = ? AND created_at >= ?`,
+    ).get(action, phone, since).count;
+  }
+  if (clientKey) {
+    return db.prepare(
+      `SELECT COUNT(1) AS count
+       FROM auth_security_events
+       WHERE action = ? AND client_key = ? AND created_at >= ?`,
+    ).get(action, clientKey, since).count;
+  }
+  return db.prepare(
+    `SELECT COUNT(1) AS count
+     FROM auth_security_events
+     WHERE action = ? AND created_at >= ?`,
+  ).get(action, since).count;
+}
+
+function writeAuthEvent({ action, phone = null, clientKey = null, success = 0, detail = null }) {
+  db.prepare(
+    `INSERT INTO auth_security_events(action, phone, client_key, success, detail, created_at)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+  ).run(action, phone, clientKey, success ? 1 : 0, detail, nowIso());
+}
+
 function ensureSchema() {
   db.exec(`
 CREATE TABLE IF NOT EXISTS tasks (
@@ -144,6 +192,8 @@ CREATE TABLE IF NOT EXISTS auth_users (
   password_hash TEXT,
   display_name TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'active',
+  failed_login_count INTEGER NOT NULL DEFAULT 0,
+  locked_until TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
@@ -165,6 +215,16 @@ CREATE TABLE IF NOT EXISTS auth_phone_codes (
   purpose TEXT NOT NULL,
   expires_at TEXT NOT NULL,
   used_at TEXT,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS auth_security_events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  action TEXT NOT NULL,
+  phone TEXT,
+  client_key TEXT,
+  success INTEGER NOT NULL DEFAULT 0,
+  detail TEXT,
   created_at TEXT NOT NULL
 );
 `);
@@ -193,6 +253,16 @@ CREATE TABLE IF NOT EXISTS auth_phone_codes (
   }
   if (!hasRepeatUntil) {
     db.exec("ALTER TABLE tasks ADD COLUMN repeat_until TEXT;");
+  }
+
+  const authUserColumns = db.prepare("PRAGMA table_info('auth_users')").all();
+  const hasFailedLoginCount = authUserColumns.some((col) => col.name === 'failed_login_count');
+  const hasLockedUntil = authUserColumns.some((col) => col.name === 'locked_until');
+  if (!hasFailedLoginCount) {
+    db.exec('ALTER TABLE auth_users ADD COLUMN failed_login_count INTEGER NOT NULL DEFAULT 0;');
+  }
+  if (!hasLockedUntil) {
+    db.exec('ALTER TABLE auth_users ADD COLUMN locked_until TEXT;');
   }
 
   const now = new Date().toISOString();
@@ -953,22 +1023,69 @@ app.post('/auth/register/phone', (req, res) => {
 
 app.post('/auth/login/phone', (req, res) => {
   const { phone, password } = req.body || {};
+  const clientKey = getClientKey(req);
+  const normalizedPhone = String(phone || '').trim();
   if (!isPhone(phone) || !isStrongPassword(password)) {
+    writeAuthEvent({
+      action: 'login_phone_invalid',
+      phone: normalizedPhone || null,
+      clientKey,
+      success: 0,
+      detail: 'format-invalid',
+    });
     return res.status(400).json({ code: 400, message: '手机号或密码格式非法', result: null });
   }
+  const clientRecentFails = countRecentAuthEvents({
+    action: 'login_phone_fail',
+    clientKey,
+    windowSeconds: 10 * 60,
+  });
+  if (clientRecentFails >= 20) {
+    return res.status(429).json({ code: 429, message: '尝试次数过多，请稍后再试', result: null });
+  }
+
   const user = db.prepare(
     'SELECT * FROM auth_users WHERE phone = ? AND status = ?',
-  ).get(String(phone).trim(), 'active');
+  ).get(normalizedPhone, 'active');
+  if (user && user.locked_until && new Date(user.locked_until).getTime() > Date.now()) {
+    return res.status(423).json({ code: 423, message: '账号已临时锁定，请稍后再试', result: null });
+  }
   if (!user || user.password_hash !== hashPassword(password)) {
+    if (user) {
+      const nextFail = (Number(user.failed_login_count) || 0) + 1;
+      const lockUntil = nextFail >= 5
+        ? new Date(Date.now() + 15 * 60 * 1000).toISOString()
+        : null;
+      db.prepare(
+        'UPDATE auth_users SET failed_login_count = ?, locked_until = ?, updated_at = ? WHERE id = ?',
+      ).run(nextFail, lockUntil, nowIso(), user.id);
+    }
+    writeAuthEvent({
+      action: 'login_phone_fail',
+      phone: normalizedPhone,
+      clientKey,
+      success: 0,
+      detail: 'credential-mismatch',
+    });
     return res.status(401).json({ code: 401, message: '手机号或密码错误', result: null });
   }
   const now = new Date();
   const expires = new Date(now.getTime() + 1000 * 60 * 60 * 24 * 30).toISOString();
   const token = createSessionToken();
   db.prepare(
+    'UPDATE auth_users SET failed_login_count = 0, locked_until = NULL, updated_at = ? WHERE id = ?',
+  ).run(now.toISOString(), user.id);
+  db.prepare(
     `INSERT INTO auth_sessions(token, user_id, provider, owner_hint, expires_at, created_at, last_seen_at)
      VALUES (?, ?, 'phone', 'me', ?, ?, ?)`,
   ).run(token, user.id, expires, now.toISOString(), now.toISOString());
+  writeAuthEvent({
+    action: 'login_phone_success',
+    phone: normalizedPhone,
+    clientKey,
+    success: 1,
+    detail: 'ok',
+  });
   res.json({
     code: 200,
     message: '登录成功',
@@ -1029,7 +1146,15 @@ app.post('/auth/phone/send-code', (req, res) => {
   const { phone, purpose = 'login' } = req.body || {};
   const normalizedPhone = String(phone || '').trim();
   const normalizedPurpose = normalizeAuthPurpose(purpose);
+  const clientKey = getClientKey(req);
   if (!isPhone(normalizedPhone)) {
+    writeAuthEvent({
+      action: 'send_code_invalid',
+      phone: normalizedPhone || null,
+      clientKey,
+      success: 0,
+      detail: 'phone-invalid',
+    });
     return res.status(400).json({ code: 400, message: '手机号格式非法', result: null });
   }
 
@@ -1041,8 +1166,46 @@ app.post('/auth/phone/send-code', (req, res) => {
   if (recent) {
     const diffMs = now - new Date(recent.created_at).getTime();
     if (diffMs < 60 * 1000) {
+      writeAuthEvent({
+        action: 'send_code_throttled',
+        phone: normalizedPhone,
+        clientKey,
+        success: 0,
+        detail: 'cooldown-60s',
+      });
       return res.status(429).json({ code: 429, message: '请求过于频繁，请稍后重试', result: null });
     }
+  }
+
+  const phoneCount10m = countRecentAuthEvents({
+    action: 'send_code_success',
+    phone: normalizedPhone,
+    windowSeconds: 10 * 60,
+  });
+  if (phoneCount10m >= 5) {
+    writeAuthEvent({
+      action: 'send_code_throttled',
+      phone: normalizedPhone,
+      clientKey,
+      success: 0,
+      detail: 'phone-limit-10m',
+    });
+    return res.status(429).json({ code: 429, message: '发送过于频繁，请 10 分钟后再试', result: null });
+  }
+  const clientCount10m = countRecentAuthEvents({
+    action: 'send_code_success',
+    clientKey,
+    windowSeconds: 10 * 60,
+  });
+  if (clientCount10m >= 12) {
+    writeAuthEvent({
+      action: 'send_code_throttled',
+      phone: normalizedPhone,
+      clientKey,
+      success: 0,
+      detail: 'client-limit-10m',
+    });
+    return res.status(429).json({ code: 429, message: '当前设备请求过多，请稍后重试', result: null });
   }
 
   const code = createPhoneCode();
@@ -1052,6 +1215,13 @@ app.post('/auth/phone/send-code', (req, res) => {
     `INSERT INTO auth_phone_codes(phone, code, purpose, expires_at, used_at, created_at)
      VALUES (?, ?, ?, ?, NULL, ?)`,
   ).run(normalizedPhone, code, normalizedPurpose, expiresAt, createdAt);
+  writeAuthEvent({
+    action: 'send_code_success',
+    phone: normalizedPhone,
+    clientKey,
+    success: 1,
+    detail: normalizedPurpose,
+  });
 
   // 当前阶段：本地联调用 debug_code 回传；生产应由短信供应商发送且不回传明文验证码。
   res.json({
@@ -1071,8 +1241,31 @@ app.post('/auth/login/phone-code', (req, res) => {
   const { phone, code } = req.body || {};
   const normalizedPhone = String(phone || '').trim();
   const normalizedCode = String(code || '').trim();
+  const clientKey = getClientKey(req);
   if (!isPhone(normalizedPhone) || !isValidCode(normalizedCode)) {
+    writeAuthEvent({
+      action: 'login_phone_code_invalid',
+      phone: normalizedPhone || null,
+      clientKey,
+      success: 0,
+      detail: 'format-invalid',
+    });
     return res.status(400).json({ code: 400, message: '手机号或验证码格式非法', result: null });
+  }
+
+  const clientRecentFails = countRecentAuthEvents({
+    action: 'login_phone_code_fail',
+    clientKey,
+    windowSeconds: 10 * 60,
+  });
+  if (clientRecentFails >= 20) {
+    return res.status(429).json({ code: 429, message: '尝试次数过多，请稍后再试', result: null });
+  }
+
+  const userForPhone = db.prepare('SELECT * FROM auth_users WHERE phone = ? AND status = ?')
+    .get(normalizedPhone, 'active');
+  if (userForPhone && userForPhone.locked_until && new Date(userForPhone.locked_until).getTime() > Date.now()) {
+    return res.status(423).json({ code: 423, message: '账号已临时锁定，请稍后再试', result: null });
   }
 
   const row = db.prepare(
@@ -1081,15 +1274,52 @@ app.post('/auth/login/phone-code', (req, res) => {
      ORDER BY id DESC LIMIT 1`,
   ).get(normalizedPhone, normalizedCode);
   if (!row) {
+    if (userForPhone) {
+      const nextFail = (Number(userForPhone.failed_login_count) || 0) + 1;
+      const lockUntil = nextFail >= 5
+        ? new Date(Date.now() + 15 * 60 * 1000).toISOString()
+        : null;
+      db.prepare(
+        'UPDATE auth_users SET failed_login_count = ?, locked_until = ?, updated_at = ? WHERE id = ?',
+      ).run(nextFail, lockUntil, nowIso(), userForPhone.id);
+    }
+    writeAuthEvent({
+      action: 'login_phone_code_fail',
+      phone: normalizedPhone,
+      clientKey,
+      success: 0,
+      detail: 'code-mismatch',
+    });
     return res.status(401).json({ code: 401, message: '验证码错误', result: null });
   }
   if (new Date(row.expires_at).getTime() < Date.now()) {
+    if (userForPhone) {
+      const nextFail = (Number(userForPhone.failed_login_count) || 0) + 1;
+      const lockUntil = nextFail >= 5
+        ? new Date(Date.now() + 15 * 60 * 1000).toISOString()
+        : null;
+      db.prepare(
+        'UPDATE auth_users SET failed_login_count = ?, locked_until = ?, updated_at = ? WHERE id = ?',
+      ).run(nextFail, lockUntil, nowIso(), userForPhone.id);
+    }
+    writeAuthEvent({
+      action: 'login_phone_code_fail',
+      phone: normalizedPhone,
+      clientKey,
+      success: 0,
+      detail: 'code-expired',
+    });
     return res.status(401).json({ code: 401, message: '验证码已过期', result: null });
   }
 
-  const user = db.prepare('SELECT * FROM auth_users WHERE phone = ? AND status = ?')
-    .get(normalizedPhone, 'active');
-  if (!user) {
+  if (!userForPhone) {
+    writeAuthEvent({
+      action: 'login_phone_code_fail',
+      phone: normalizedPhone,
+      clientKey,
+      success: 0,
+      detail: 'user-not-found',
+    });
     return res.status(404).json({ code: 404, message: '手机号未注册', result: null });
   }
 
@@ -1098,9 +1328,19 @@ app.post('/auth/login/phone-code', (req, res) => {
   const expires = new Date(now.getTime() + 1000 * 60 * 60 * 24 * 30).toISOString();
   db.prepare('UPDATE auth_phone_codes SET used_at = ? WHERE id = ?').run(now.toISOString(), row.id);
   db.prepare(
+    'UPDATE auth_users SET failed_login_count = 0, locked_until = NULL, updated_at = ? WHERE id = ?',
+  ).run(now.toISOString(), userForPhone.id);
+  db.prepare(
     `INSERT INTO auth_sessions(token, user_id, provider, owner_hint, expires_at, created_at, last_seen_at)
      VALUES (?, ?, 'phone_code', 'me', ?, ?, ?)`,
-  ).run(token, user.id, expires, now.toISOString(), now.toISOString());
+  ).run(token, userForPhone.id, expires, now.toISOString(), now.toISOString());
+  writeAuthEvent({
+    action: 'login_phone_code_success',
+    phone: normalizedPhone,
+    clientKey,
+    success: 1,
+    detail: 'ok',
+  });
 
   res.json({
     code: 200,
@@ -1110,10 +1350,10 @@ app.post('/auth/login/phone-code', (req, res) => {
       provider: 'phone_code',
       expires_at: expires,
       user: {
-        id: user.id,
-        phone: user.phone,
-        display_name: user.display_name,
-        status: user.status,
+        id: userForPhone.id,
+        phone: userForPhone.phone,
+        display_name: userForPhone.display_name,
+        status: userForPhone.status,
       },
     },
   });
@@ -1123,12 +1363,27 @@ app.post('/auth/register/phone-code', (req, res) => {
   const { phone, code, display_name = '新用户', password = null } = req.body || {};
   const normalizedPhone = String(phone || '').trim();
   const normalizedCode = String(code || '').trim();
+  const clientKey = getClientKey(req);
   if (!isPhone(normalizedPhone) || !isValidCode(normalizedCode)) {
+    writeAuthEvent({
+      action: 'register_phone_code_invalid',
+      phone: normalizedPhone || null,
+      clientKey,
+      success: 0,
+      detail: 'format-invalid',
+    });
     return res.status(400).json({ code: 400, message: '手机号或验证码格式非法', result: null });
   }
 
   const exists = db.prepare('SELECT id FROM auth_users WHERE phone = ?').get(normalizedPhone);
   if (exists) {
+    writeAuthEvent({
+      action: 'register_phone_code_fail',
+      phone: normalizedPhone,
+      clientKey,
+      success: 0,
+      detail: 'phone-exists',
+    });
     return res.status(409).json({ code: 409, message: '手机号已注册', result: null });
   }
 
@@ -1138,9 +1393,23 @@ app.post('/auth/register/phone-code', (req, res) => {
      ORDER BY id DESC LIMIT 1`,
   ).get(normalizedPhone, normalizedCode);
   if (!row) {
+    writeAuthEvent({
+      action: 'register_phone_code_fail',
+      phone: normalizedPhone,
+      clientKey,
+      success: 0,
+      detail: 'code-mismatch',
+    });
     return res.status(401).json({ code: 401, message: '验证码错误', result: null });
   }
   if (new Date(row.expires_at).getTime() < Date.now()) {
+    writeAuthEvent({
+      action: 'register_phone_code_fail',
+      phone: normalizedPhone,
+      clientKey,
+      success: 0,
+      detail: 'code-expired',
+    });
     return res.status(401).json({ code: 401, message: '验证码已过期', result: null });
   }
 
@@ -1165,6 +1434,13 @@ app.post('/auth/register/phone-code', (req, res) => {
     `INSERT INTO auth_sessions(token, user_id, provider, owner_hint, expires_at, created_at, last_seen_at)
      VALUES (?, ?, 'phone_code', 'me', ?, ?, ?)`,
   ).run(token, user.id, expires, nowIso, nowIso);
+  writeAuthEvent({
+    action: 'register_phone_code_success',
+    phone: normalizedPhone,
+    clientKey,
+    success: 1,
+    detail: 'ok',
+  });
 
   res.json({
     code: 200,
@@ -1248,6 +1524,7 @@ app.get('/export/snapshot', (req, res) => {
     notifications: db.prepare('SELECT * FROM notifications ORDER BY id DESC').all(),
     auth_users: db.prepare('SELECT id, phone, wechat_openid, display_name, status, created_at, updated_at FROM auth_users ORDER BY id DESC').all(),
     auth_sessions: db.prepare('SELECT token, user_id, provider, owner_hint, expires_at, created_at, last_seen_at FROM auth_sessions ORDER BY created_at DESC').all(),
+    auth_security_events: db.prepare('SELECT * FROM auth_security_events ORDER BY id DESC LIMIT 500').all(),
   };
   res.json({ code: 200, message: '导出快照成功', result });
 });

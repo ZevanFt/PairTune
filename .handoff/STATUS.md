@@ -396,6 +396,25 @@ flutter run -d 55c83fe9
 - 验证：
   - `flutter analyze --no-pub` 通过（当前网络对 pub 源握手不稳定）
   - `node --check backend/src/main.js` 通过
+
+## Codex 第十九轮（2026-03-10）
+- 认证安全加固（后端）：
+  - `auth_users` 增加 `failed_login_count` / `locked_until`
+  - 新增审计表 `auth_security_events`，记录发码/登录成功失败与限流命中
+  - `POST /auth/phone/send-code` 增强限流：
+    - 60 秒冷却
+    - 同手机号 10 分钟最多 5 次
+    - 同客户端（IP+设备+UA）10 分钟最多 12 次
+  - `POST /auth/login/phone` 与 `POST /auth/login/phone-code` 增强防暴力策略：
+    - 客户端失败次数限流
+    - 同账号连续失败 5 次锁定 15 分钟
+    - 登录成功后自动清零失败计数并解锁
+- 快照导出补充：
+  - `export/snapshot` 增加 `auth_security_events`
+- 文档同步：
+  - `docs/BACKEND_SCHEMA_AND_API.md` 已更新认证表结构与限流/锁定规则
+- 验证：
+  - `node --check backend/src/main.js` 通过
   - 保留原有重复任务、周几重复、共同任务字段与保存逻辑
 - 已完成调试页重构：`frontend/lib/pages/debug_page.dart`
   - 顶部诊断 Hero：Base URL / 健康状态 / 日志数
