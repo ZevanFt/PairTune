@@ -210,9 +210,17 @@
   - 入参：`token`
 
 认证相关环境变量：
-- `SMS_PROVIDER=mock|...`（当前内置 `mock`，可替换为真实短信服务实现）
+- `SMS_PROVIDER=mock|tencent`
 - `AUTH_DEBUG_CODE=1`（仅在需要联调时显式开启验证码明文回传）
 - `NODE_ENV=production` 时默认关闭 `debug_code` 回传
+- 当 `SMS_PROVIDER=tencent` 时需要：
+  - `TENCENT_SMS_SECRET_ID`
+  - `TENCENT_SMS_SECRET_KEY`
+  - `TENCENT_SMS_SDK_APP_ID`
+  - `TENCENT_SMS_SIGN_NAME`
+  - `TENCENT_SMS_TEMPLATE_ID`
+  - 可选：`TENCENT_SMS_REGION`（默认 `ap-guangzhou`）
+  - 可选：`TENCENT_SMS_HOST`（默认 `sms.tencentcloudapi.com`）
 
 ## 4. 请求示例
 

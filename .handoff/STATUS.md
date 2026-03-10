@@ -431,6 +431,16 @@ flutter run -d 55c83fe9
 - 验证：
   - `node --check backend/src/main.js` 通过
   - `node --check backend/src/sms_provider.js` 通过
+
+## Codex 第二十一轮（2026-03-10）
+- 短信 provider 能力升级：
+  - `backend/src/sms_provider.js` 新增 `tencent` 真实发送实现（TC3-HMAC-SHA256 签名）
+  - 保留 `mock` provider 用于本地开发
+  - 未配置或不支持的 provider 会明确报错
+- 文档同步：
+  - `docs/BACKEND_SCHEMA_AND_API.md` 增加腾讯云短信必填/可选环境变量
+- 验证：
+  - `node --check backend/src/sms_provider.js` 通过
   - 保留原有重复任务、周几重复、共同任务字段与保存逻辑
 - 已完成调试页重构：`frontend/lib/pages/debug_page.dart`
   - 顶部诊断 Hero：Base URL / 健康状态 / 日志数
