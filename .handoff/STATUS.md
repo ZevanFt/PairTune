@@ -379,6 +379,23 @@ flutter run -d 55c83fe9
 - 验证：
   - `node --check backend/src/main.js` 通过
   - `flutter analyze` 通过（No issues found）
+
+## Codex 第十八轮（2026-03-10）
+- 会话持久化与自动恢复：
+  - 新增 `frontend/lib/services/auth_session_store.dart`
+  - 使用本地 SQLite（`sqflite`）保存 token
+  - `main.dart` 启动时自动读取并调用 `/auth/session` 校验，成功则免登录进入应用
+- 退出登录闭环：
+  - `profile_page.dart` 新增“退出登录”入口与二次确认
+  - 退出后调用 `/auth/logout`（失败不阻断本地退出），并清理本地 token
+  - 路由状态重置回认证页面
+- 认证页回调接线：
+  - `AuthPage` 登录成功会把 token 回传给根页面持久化
+- 依赖说明：
+  - 原计划 `shared_preferences` 因当前网络 TLS 问题无法下载，已改为项目已有 `sqflite` 方案实现同等能力
+- 验证：
+  - `flutter analyze --no-pub` 通过（当前网络对 pub 源握手不稳定）
+  - `node --check backend/src/main.js` 通过
   - 保留原有重复任务、周几重复、共同任务字段与保存逻辑
 - 已完成调试页重构：`frontend/lib/pages/debug_page.dart`
   - 顶部诊断 Hero：Base URL / 健康状态 / 日志数

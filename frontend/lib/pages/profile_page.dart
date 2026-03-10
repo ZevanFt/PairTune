@@ -18,11 +18,13 @@ class ProfilePage extends StatefulWidget {
     required this.owner,
     required this.duoEnabled,
     required this.onModeChanged,
+    required this.onLogout,
   });
 
   final String owner;
   final bool duoEnabled;
   final ValueChanged<bool> onModeChanged;
+  final Future<void> Function() onLogout;
 
   @override
   State<ProfilePage> createState() => _ProfilePageState();
@@ -274,6 +276,62 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                   ),
                 ),
+              ),
+              _buildItem(
+                Icons.logout_rounded,
+                '退出登录',
+                '退出当前账号并回到登录页',
+                onTap: () async {
+                  final confirmed = await showModalBottomSheet<bool>(
+                    context: context,
+                    backgroundColor: AppTheme.panel,
+                    shape: const RoundedRectangleBorder(
+                      borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+                    ),
+                    builder: (context) => Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                      child: SafeArea(
+                        top: false,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              '退出登录',
+                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                            ),
+                            const SizedBox(height: 4),
+                            const Text(
+                              '退出后需要重新登录才能继续使用',
+                              style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
+                            ),
+                            const SizedBox(height: 14),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: OutlinedButton(
+                                    onPressed: () => Navigator.pop(context, false),
+                                    child: const Text('取消'),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: FilledButton(
+                                    onPressed: () => Navigator.pop(context, true),
+                                    child: const Text('确认退出'),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                  if (confirmed == true) {
+                    await widget.onLogout();
+                  }
+                },
               ),
               const SizedBox(height: AppSpace.lg + 2),
               Text(

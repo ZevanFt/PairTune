@@ -5,6 +5,8 @@ import 'pages/home_page.dart';
 import 'pages/notifications_page.dart';
 import 'pages/profile_page.dart';
 import 'pages/store_page.dart';
+import 'services/auth_api_service.dart';
+import 'services/auth_session_store.dart';
 import 'ui/app_theme.dart';
 
 void main() {
@@ -36,18 +38,87 @@ class _RootPage extends StatefulWidget {
 class _RootPageState extends State<_RootPage> {
   int _index = 0;
   String _owner = 'me';
+  bool _authLoading = true;
   bool _authed = false;
+  String? _authToken;
   bool? _duoEnabled;
+  final _authApi = AuthApiService();
+  final _authStore = AuthSessionStore();
+
+  @override
+  void initState() {
+    super.initState();
+    _restoreSession();
+  }
+
+  Future<void> _restoreSession() async {
+    final token = await _authStore.getToken();
+    if (token == null || token.isEmpty) {
+      if (!mounted) return;
+      setState(() => _authLoading = false);
+      return;
+    }
+    try {
+      await _authApi.getSession(token);
+      if (!mounted) return;
+      setState(() {
+        _authToken = token;
+        _authed = true;
+        _authLoading = false;
+      });
+    } catch (_) {
+      await _authStore.clearToken();
+      if (!mounted) return;
+      setState(() {
+        _authToken = null;
+        _authed = false;
+        _authLoading = false;
+      });
+    }
+  }
+
+  Future<void> _handleAuthenticated(String token) async {
+    if (token.isNotEmpty && token != 'dev_mode_token') {
+      await _authStore.saveToken(token);
+    }
+    if (!mounted) return;
+    setState(() {
+      _authToken = token;
+      _authed = true;
+    });
+  }
+
+  Future<void> _handleLogout() async {
+    final token = _authToken;
+    if (token != null && token.isNotEmpty && token != 'dev_mode_token') {
+      try {
+        await _authApi.logout(token);
+      } catch (_) {
+        // Ignore remote logout failure; local sign-out still proceeds.
+      }
+    }
+    await _authStore.clearToken();
+    if (!mounted) return;
+    setState(() {
+      _authed = false;
+      _authToken = null;
+      _duoEnabled = null;
+      _owner = 'me';
+      _index = 0;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (_authLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     if (!_authed) {
       return AuthPage(
-        onAuthenticated: (token) {
-          setState(() {
-            _authed = true;
-          });
-        },
+        onAuthenticated: _handleAuthenticated,
       );
     }
 
@@ -84,6 +155,7 @@ class _RootPageState extends State<_RootPage> {
             _owner = 'me';
           });
         },
+        onLogout: _handleLogout,
       ),
     ];
 

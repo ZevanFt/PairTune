@@ -194,4 +194,15 @@ class AuthApiService {
     ApiLogger.response('AuthApi', uri, resp);
     _ensureOk(resp, path);
   }
+
+  Future<AuthSession> getSession(String token) async {
+    const path = '/auth/session';
+    final uri = _uri('$path?token=$token');
+    ApiLogger.request('AuthApi', 'GET', uri);
+    final resp = await _client.get(uri);
+    ApiLogger.response('AuthApi', uri, resp);
+    _ensureOk(resp, path);
+    final data = jsonDecode(resp.body) as Map<String, dynamic>;
+    return AuthSession.fromMap((data['result'] as Map<String, dynamic>));
+  }
 }
