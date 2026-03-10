@@ -3,11 +3,13 @@ const crypto = require('crypto');
 const express = require('express');
 const cors = require('cors');
 const Database = require('better-sqlite3');
+const { createSmsProvider } = require('./sms_provider');
 
 const app = express();
 const port = process.env.PORT || 8110;
 const dbPath = path.join(__dirname, '..', 'data', 'priority_first.db');
 const db = new Database(dbPath);
+const smsProvider = createSmsProvider();
 
 db.pragma('journal_mode = WAL');
 
@@ -53,6 +55,11 @@ function normalizeAuthPurpose(value) {
 
 function createPhoneCode() {
   return String(crypto.randomInt(0, 1000000)).padStart(6, '0');
+}
+
+function shouldExposeDebugCode() {
+  if (String(process.env.AUTH_DEBUG_CODE || '').trim() === '1') return true;
+  return String(process.env.NODE_ENV || '').trim() !== 'production';
 }
 
 function nowIso() {
@@ -1223,18 +1230,38 @@ app.post('/auth/phone/send-code', (req, res) => {
     detail: normalizedPurpose,
   });
 
-  // 当前阶段：本地联调用 debug_code 回传；生产应由短信供应商发送且不回传明文验证码。
-  res.json({
-    code: 200,
-    message: '验证码发送成功',
-    result: {
+  smsProvider
+    .sendCode({
       phone: normalizedPhone,
+      code,
       purpose: normalizedPurpose,
-      expires_at: expiresAt,
-      debug_code: code,
-      ttl_seconds: 300,
-    },
-  });
+    })
+    .then(() => {
+      const result = {
+        phone: normalizedPhone,
+        purpose: normalizedPurpose,
+        expires_at: expiresAt,
+        ttl_seconds: 300,
+      };
+      if (shouldExposeDebugCode()) {
+        result.debug_code = code;
+      }
+      res.json({
+        code: 200,
+        message: '验证码发送成功',
+        result,
+      });
+    })
+    .catch((error) => {
+      writeAuthEvent({
+        action: 'send_code_provider_fail',
+        phone: normalizedPhone,
+        clientKey,
+        success: 0,
+        detail: String(error.message || 'provider-error'),
+      });
+      res.status(500).json({ code: 500, message: '短信发送失败', result: null });
+    });
 });
 
 app.post('/auth/login/phone-code', (req, res) => {

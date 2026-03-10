@@ -192,6 +192,7 @@
   - 入参：`phone/purpose(login|register)`
   - 限流：同手机号 60 秒内不可重复发码；同手机号 10 分钟最多 5 次；同客户端 10 分钟最多 12 次
   - 过期：验证码 5 分钟有效
+  - 安全：生产环境默认不回传 `debug_code`
 - `POST /auth/login/phone-code`
   - 入参：`phone/code`
   - 说明：验证码登录（provider=`phone_code`）
@@ -207,6 +208,11 @@
   - 校验会话并返回用户信息，过期会自动清理
 - `POST /auth/logout`
   - 入参：`token`
+
+认证相关环境变量：
+- `SMS_PROVIDER=mock|...`（当前内置 `mock`，可替换为真实短信服务实现）
+- `AUTH_DEBUG_CODE=1`（仅在需要联调时显式开启验证码明文回传）
+- `NODE_ENV=production` 时默认关闭 `debug_code` 回传
 
 ## 4. 请求示例
 

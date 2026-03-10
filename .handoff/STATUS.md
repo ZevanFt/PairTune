@@ -415,6 +415,22 @@ flutter run -d 55c83fe9
   - `docs/BACKEND_SCHEMA_AND_API.md` 已更新认证表结构与限流/锁定规则
 - 验证：
   - `node --check backend/src/main.js` 通过
+
+## Codex 第二十轮（2026-03-10）
+- 短信发送 Provider 抽象（后端）：
+  - 新增 `backend/src/sms_provider.js`
+  - 当前默认 `mock` provider，便于本地开发联调
+- 验证码回传安全策略：
+  - `POST /auth/phone/send-code` 改为“开发环境可回传 debug_code，生产默认不回传”
+  - 支持环境变量：
+    - `SMS_PROVIDER`
+    - `AUTH_DEBUG_CODE`
+    - `NODE_ENV`
+- 文档同步：
+  - `docs/BACKEND_SCHEMA_AND_API.md` 已补短信 provider 与 debug_code 策略说明
+- 验证：
+  - `node --check backend/src/main.js` 通过
+  - `node --check backend/src/sms_provider.js` 通过
   - 保留原有重复任务、周几重复、共同任务字段与保存逻辑
 - 已完成调试页重构：`frontend/lib/pages/debug_page.dart`
   - 顶部诊断 Hero：Base URL / 健康状态 / 日志数
