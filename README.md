@@ -33,6 +33,13 @@ cd /home/talent/projects/priority_first/frontend
 flutter run
 ```
 
+### 管理后台（React）
+```bash
+cd /home/talent/projects/priority_first/admin
+npm install
+npm run dev
+```
+
 ## 管理员初始化（推荐）
 使用脚本交互输入管理员账号和密码：
 ```bash

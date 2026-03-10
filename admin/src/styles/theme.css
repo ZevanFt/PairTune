@@ -1,0 +1,26 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+:root {
+  --color-ink: #0f172a;
+  --color-muted: #64748b;
+  --color-primary: #2f5bea;
+  --color-accent: #0ea5e9;
+  --color-surface: #ffffff;
+  --color-border: #e2e8f0;
+  --color-brand: #111827;
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+
+  --shadow-soft: 0 12px 28px rgba(15, 23, 42, 0.08);
+  --shadow-glow: 0 10px 40px rgba(47, 91, 234, 0.18);
+
+  --bg-gradient: radial-gradient(circle at 0% 0%, #e0ecff 0%, #f6f7fb 42%, #f9fafb 100%);
+  --sidebar-gradient: linear-gradient(160deg, #0f172a 0%, #172554 40%, #1d4ed8 100%);
+}
+
+body {
+  font-family: 'Space Grotesk', system-ui, -apple-system, sans-serif;
+  color: var(--color-ink);
+  background: var(--bg-gradient);
+}

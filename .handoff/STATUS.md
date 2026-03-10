@@ -485,6 +485,15 @@ flutter run -d 55c83fe9
   - 新增 `docs/AUTH_ROADMAP.md`
   - 更新 `docs/BACKEND_SCHEMA_AND_API.md` 与 `backend/README.md`
 
+## Codex 第二十四轮（2026-03-11）
+- 管理后台前端脚手架（React + AntD + Tailwind）：
+  - 新增 `admin/` 前端目录
+  - 基础页面：Dashboard / Invites / Users / Roles / Tasks / Points / Store / Security / Settings / Login
+  - 主题样式采用 CSS 变量 + Tailwind
+  - 管理员登录与本地 token 存储
+- 文档：
+  - 根 README 增加管理后台启动说明
+
 ## Codex UI 第五轮优化（2026-03-09）
 - 已完成弹窗视觉统一：
   - 商城页 `发布商品 / 编辑商品 / 下架确认` 统一改为共用弹窗模板
