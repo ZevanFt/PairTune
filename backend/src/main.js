@@ -4,12 +4,14 @@ const express = require('express');
 const cors = require('cors');
 const Database = require('better-sqlite3');
 const { createSmsProvider } = require('./sms_provider');
+const { createEmailProvider } = require('./email_provider');
 
 const app = express();
 const port = process.env.PORT || 8110;
 const dbPath = path.join(__dirname, '..', 'data', 'priority_first.db');
 const db = new Database(dbPath);
 const smsProvider = createSmsProvider();
+const emailProvider = createEmailProvider();
 
 db.pragma('journal_mode = WAL');
 
@@ -38,6 +40,14 @@ function createSessionToken() {
 
 function isPhone(value) {
   return /^1\d{10}$/.test(String(value || '').trim());
+}
+
+function normalizeEmail(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function isEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizeEmail(value));
 }
 
 function isStrongPassword(value) {
@@ -73,8 +83,22 @@ function getClientKey(req) {
   return `${ip}|${deviceId || 'no-device'}|${ua || 'no-ua'}`;
 }
 
-function countRecentAuthEvents({ action, phone = null, clientKey = null, windowSeconds = 600 }) {
+function countRecentAuthEvents({ action, phone = null, email = null, clientKey = null, windowSeconds = 600 }) {
   const since = new Date(Date.now() - windowSeconds * 1000).toISOString();
+  if (email && clientKey) {
+    return db.prepare(
+      `SELECT COUNT(1) AS count
+       FROM auth_security_events
+       WHERE action = ? AND email = ? AND client_key = ? AND created_at >= ?`,
+    ).get(action, email, clientKey, since).count;
+  }
+  if (email) {
+    return db.prepare(
+      `SELECT COUNT(1) AS count
+       FROM auth_security_events
+       WHERE action = ? AND email = ? AND created_at >= ?`,
+    ).get(action, email, since).count;
+  }
   if (phone && clientKey) {
     return db.prepare(
       `SELECT COUNT(1) AS count
@@ -103,11 +127,11 @@ function countRecentAuthEvents({ action, phone = null, clientKey = null, windowS
   ).get(action, since).count;
 }
 
-function writeAuthEvent({ action, phone = null, clientKey = null, success = 0, detail = null }) {
+function writeAuthEvent({ action, phone = null, email = null, clientKey = null, success = 0, detail = null }) {
   db.prepare(
-    `INSERT INTO auth_security_events(action, phone, client_key, success, detail, created_at)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-  ).run(action, phone, clientKey, success ? 1 : 0, detail, nowIso());
+    `INSERT INTO auth_security_events(action, phone, email, client_key, success, detail, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+  ).run(action, phone, email, clientKey, success ? 1 : 0, detail, nowIso());
 }
 
 function ensureSchema() {
@@ -195,6 +219,7 @@ CREATE TABLE IF NOT EXISTS notifications (
 CREATE TABLE IF NOT EXISTS auth_users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   phone TEXT UNIQUE,
+  email TEXT,
   wechat_openid TEXT UNIQUE,
   password_hash TEXT,
   display_name TEXT NOT NULL,
@@ -225,10 +250,21 @@ CREATE TABLE IF NOT EXISTS auth_phone_codes (
   created_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS auth_email_codes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  email TEXT NOT NULL,
+  code TEXT NOT NULL,
+  purpose TEXT NOT NULL,
+  expires_at TEXT NOT NULL,
+  used_at TEXT,
+  created_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS auth_security_events (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   action TEXT NOT NULL,
   phone TEXT,
+  email TEXT,
   client_key TEXT,
   success INTEGER NOT NULL DEFAULT 0,
   detail TEXT,
@@ -263,13 +299,24 @@ CREATE TABLE IF NOT EXISTS auth_security_events (
   }
 
   const authUserColumns = db.prepare("PRAGMA table_info('auth_users')").all();
+  const hasEmail = authUserColumns.some((col) => col.name === 'email');
   const hasFailedLoginCount = authUserColumns.some((col) => col.name === 'failed_login_count');
   const hasLockedUntil = authUserColumns.some((col) => col.name === 'locked_until');
+  if (!hasEmail) {
+    db.exec('ALTER TABLE auth_users ADD COLUMN email TEXT;');
+  }
   if (!hasFailedLoginCount) {
     db.exec('ALTER TABLE auth_users ADD COLUMN failed_login_count INTEGER NOT NULL DEFAULT 0;');
   }
   if (!hasLockedUntil) {
     db.exec('ALTER TABLE auth_users ADD COLUMN locked_until TEXT;');
+  }
+  db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_auth_users_email_unique ON auth_users(email) WHERE email IS NOT NULL;');
+
+  const authEventColumns = db.prepare("PRAGMA table_info('auth_security_events')").all();
+  const hasEventEmail = authEventColumns.some((col) => col.name === 'email');
+  if (!hasEventEmail) {
+    db.exec('ALTER TABLE auth_security_events ADD COLUMN email TEXT;');
   }
 
   const now = new Date().toISOString();
@@ -1149,6 +1196,117 @@ app.post('/auth/login/wechat', (req, res) => {
   });
 });
 
+app.post('/auth/email/send-code', (req, res) => {
+  const { email, purpose = 'login' } = req.body || {};
+  const normalizedEmail = normalizeEmail(email);
+  const normalizedPurpose = normalizeAuthPurpose(purpose);
+  const clientKey = getClientKey(req);
+  if (!isEmail(normalizedEmail)) {
+    writeAuthEvent({
+      action: 'send_email_code_invalid',
+      email: normalizedEmail || null,
+      clientKey,
+      success: 0,
+      detail: 'email-invalid',
+    });
+    return res.status(400).json({ code: 400, message: '邮箱格式非法', result: null });
+  }
+
+  const now = Date.now();
+  const recent = db.prepare(
+    `SELECT created_at FROM auth_email_codes
+     WHERE email = ? ORDER BY id DESC LIMIT 1`,
+  ).get(normalizedEmail);
+  if (recent) {
+    const diffMs = now - new Date(recent.created_at).getTime();
+    if (diffMs < 60 * 1000) {
+      writeAuthEvent({
+        action: 'send_email_code_throttled',
+        email: normalizedEmail,
+        clientKey,
+        success: 0,
+        detail: 'cooldown-60s',
+      });
+      return res.status(429).json({ code: 429, message: '请求过于频繁，请稍后重试', result: null });
+    }
+  }
+
+  const emailCount10m = countRecentAuthEvents({
+    action: 'send_email_code_success',
+    email: normalizedEmail,
+    windowSeconds: 10 * 60,
+  });
+  if (emailCount10m >= 5) {
+    writeAuthEvent({
+      action: 'send_email_code_throttled',
+      email: normalizedEmail,
+      clientKey,
+      success: 0,
+      detail: 'email-limit-10m',
+    });
+    return res.status(429).json({ code: 429, message: '发送过于频繁，请 10 分钟后再试', result: null });
+  }
+  const clientCount10m = countRecentAuthEvents({
+    action: 'send_email_code_success',
+    clientKey,
+    windowSeconds: 10 * 60,
+  });
+  if (clientCount10m >= 12) {
+    writeAuthEvent({
+      action: 'send_email_code_throttled',
+      email: normalizedEmail,
+      clientKey,
+      success: 0,
+      detail: 'client-limit-10m',
+    });
+    return res.status(429).json({ code: 429, message: '当前设备请求过多，请稍后重试', result: null });
+  }
+
+  const code = createPhoneCode();
+  const createdAt = new Date(now).toISOString();
+  const expiresAt = new Date(now + 5 * 60 * 1000).toISOString();
+  db.prepare(
+    `INSERT INTO auth_email_codes(email, code, purpose, expires_at, used_at, created_at)
+     VALUES (?, ?, ?, ?, NULL, ?)`,
+  ).run(normalizedEmail, code, normalizedPurpose, expiresAt, createdAt);
+
+  emailProvider
+    .sendCode({
+      email: normalizedEmail,
+      code,
+      purpose: normalizedPurpose,
+    })
+    .then(() => {
+      const result = {
+        email: normalizedEmail,
+        purpose: normalizedPurpose,
+        expires_at: expiresAt,
+        ttl_seconds: 300,
+      };
+      if (shouldExposeDebugCode()) {
+        result.debug_code = code;
+      }
+      writeAuthEvent({
+        action: 'send_email_code_success',
+        email: normalizedEmail,
+        clientKey,
+        success: 1,
+        detail: normalizedPurpose,
+      });
+      res.json({ code: 200, message: '验证码发送成功', result });
+    })
+    .catch((error) => {
+      writeAuthEvent({
+        action: 'send_email_code_provider_fail',
+        email: normalizedEmail,
+        clientKey,
+        success: 0,
+        detail: String(error.message || 'provider-error'),
+      });
+      res.status(500).json({ code: 500, message: '邮件发送失败', result: null });
+    });
+});
+
 app.post('/auth/phone/send-code', (req, res) => {
   const { phone, purpose = 'login' } = req.body || {};
   const normalizedPhone = String(phone || '').trim();
@@ -1386,6 +1544,128 @@ app.post('/auth/login/phone-code', (req, res) => {
   });
 });
 
+app.post('/auth/login/email-code', (req, res) => {
+  const { email, code } = req.body || {};
+  const normalizedEmail = normalizeEmail(email);
+  const normalizedCode = String(code || '').trim();
+  const clientKey = getClientKey(req);
+  if (!isEmail(normalizedEmail) || !isValidCode(normalizedCode)) {
+    writeAuthEvent({
+      action: 'login_email_code_invalid',
+      email: normalizedEmail || null,
+      clientKey,
+      success: 0,
+      detail: 'format-invalid',
+    });
+    return res.status(400).json({ code: 400, message: '邮箱或验证码格式非法', result: null });
+  }
+
+  const clientRecentFails = countRecentAuthEvents({
+    action: 'login_email_code_fail',
+    clientKey,
+    windowSeconds: 10 * 60,
+  });
+  if (clientRecentFails >= 20) {
+    return res.status(429).json({ code: 429, message: '尝试次数过多，请稍后再试', result: null });
+  }
+
+  const userForEmail = db.prepare('SELECT * FROM auth_users WHERE email = ? AND status = ?')
+    .get(normalizedEmail, 'active');
+  if (userForEmail && userForEmail.locked_until && new Date(userForEmail.locked_until).getTime() > Date.now()) {
+    return res.status(423).json({ code: 423, message: '账号已临时锁定，请稍后再试', result: null });
+  }
+
+  const row = db.prepare(
+    `SELECT * FROM auth_email_codes
+     WHERE email = ? AND code = ? AND purpose = 'login' AND used_at IS NULL
+     ORDER BY id DESC LIMIT 1`,
+  ).get(normalizedEmail, normalizedCode);
+  if (!row) {
+    if (userForEmail) {
+      const nextFail = (Number(userForEmail.failed_login_count) || 0) + 1;
+      const lockUntil = nextFail >= 5
+        ? new Date(Date.now() + 15 * 60 * 1000).toISOString()
+        : null;
+      db.prepare(
+        'UPDATE auth_users SET failed_login_count = ?, locked_until = ?, updated_at = ? WHERE id = ?',
+      ).run(nextFail, lockUntil, nowIso(), userForEmail.id);
+    }
+    writeAuthEvent({
+      action: 'login_email_code_fail',
+      email: normalizedEmail,
+      clientKey,
+      success: 0,
+      detail: 'code-mismatch',
+    });
+    return res.status(401).json({ code: 401, message: '验证码错误', result: null });
+  }
+  if (new Date(row.expires_at).getTime() < Date.now()) {
+    if (userForEmail) {
+      const nextFail = (Number(userForEmail.failed_login_count) || 0) + 1;
+      const lockUntil = nextFail >= 5
+        ? new Date(Date.now() + 15 * 60 * 1000).toISOString()
+        : null;
+      db.prepare(
+        'UPDATE auth_users SET failed_login_count = ?, locked_until = ?, updated_at = ? WHERE id = ?',
+      ).run(nextFail, lockUntil, nowIso(), userForEmail.id);
+    }
+    writeAuthEvent({
+      action: 'login_email_code_fail',
+      email: normalizedEmail,
+      clientKey,
+      success: 0,
+      detail: 'code-expired',
+    });
+    return res.status(401).json({ code: 401, message: '验证码已过期', result: null });
+  }
+
+  if (!userForEmail) {
+    writeAuthEvent({
+      action: 'login_email_code_fail',
+      email: normalizedEmail,
+      clientKey,
+      success: 0,
+      detail: 'user-not-found',
+    });
+    return res.status(404).json({ code: 404, message: '邮箱未注册', result: null });
+  }
+
+  const now = new Date();
+  const token = createSessionToken();
+  const expires = new Date(now.getTime() + 1000 * 60 * 60 * 24 * 30).toISOString();
+  db.prepare('UPDATE auth_email_codes SET used_at = ? WHERE id = ?').run(now.toISOString(), row.id);
+  db.prepare(
+    'UPDATE auth_users SET failed_login_count = 0, locked_until = NULL, updated_at = ? WHERE id = ?',
+  ).run(now.toISOString(), userForEmail.id);
+  db.prepare(
+    `INSERT INTO auth_sessions(token, user_id, provider, owner_hint, expires_at, created_at, last_seen_at)
+     VALUES (?, ?, 'email_code', 'me', ?, ?, ?)`,
+  ).run(token, userForEmail.id, expires, now.toISOString(), now.toISOString());
+  writeAuthEvent({
+    action: 'login_email_code_success',
+    email: normalizedEmail,
+    clientKey,
+    success: 1,
+    detail: 'ok',
+  });
+
+  res.json({
+    code: 200,
+    message: '验证码登录成功',
+    result: {
+      token,
+      provider: 'email_code',
+      expires_at: expires,
+      user: {
+        id: userForEmail.id,
+        email: userForEmail.email,
+        display_name: userForEmail.display_name,
+        status: userForEmail.status,
+      },
+    },
+  });
+});
+
 app.post('/auth/register/phone-code', (req, res) => {
   const { phone, code, display_name = '新用户', password = null } = req.body || {};
   const normalizedPhone = String(phone || '').trim();
@@ -1486,6 +1766,106 @@ app.post('/auth/register/phone-code', (req, res) => {
   });
 });
 
+app.post('/auth/register/email-code', (req, res) => {
+  const { email, code, display_name = '新用户', password = null } = req.body || {};
+  const normalizedEmail = normalizeEmail(email);
+  const normalizedCode = String(code || '').trim();
+  const clientKey = getClientKey(req);
+  if (!isEmail(normalizedEmail) || !isValidCode(normalizedCode)) {
+    writeAuthEvent({
+      action: 'register_email_code_invalid',
+      email: normalizedEmail || null,
+      clientKey,
+      success: 0,
+      detail: 'format-invalid',
+    });
+    return res.status(400).json({ code: 400, message: '邮箱或验证码格式非法', result: null });
+  }
+
+  const exists = db.prepare('SELECT id FROM auth_users WHERE email = ?').get(normalizedEmail);
+  if (exists) {
+    writeAuthEvent({
+      action: 'register_email_code_fail',
+      email: normalizedEmail,
+      clientKey,
+      success: 0,
+      detail: 'email-exists',
+    });
+    return res.status(409).json({ code: 409, message: '邮箱已注册', result: null });
+  }
+
+  const row = db.prepare(
+    `SELECT * FROM auth_email_codes
+     WHERE email = ? AND code = ? AND purpose = 'register' AND used_at IS NULL
+     ORDER BY id DESC LIMIT 1`,
+  ).get(normalizedEmail, normalizedCode);
+  if (!row) {
+    writeAuthEvent({
+      action: 'register_email_code_fail',
+      email: normalizedEmail,
+      clientKey,
+      success: 0,
+      detail: 'code-mismatch',
+    });
+    return res.status(401).json({ code: 401, message: '验证码错误', result: null });
+  }
+  if (new Date(row.expires_at).getTime() < Date.now()) {
+    writeAuthEvent({
+      action: 'register_email_code_fail',
+      email: normalizedEmail,
+      clientKey,
+      success: 0,
+      detail: 'code-expired',
+    });
+    return res.status(401).json({ code: 401, message: '验证码已过期', result: null });
+  }
+
+  const now = new Date();
+  const nowIso = now.toISOString();
+  const info = db.prepare(
+    `INSERT INTO auth_users(phone, email, password_hash, display_name, status, created_at, updated_at)
+     VALUES (NULL, ?, ?, ?, 'active', ?, ?)`,
+  ).run(
+    normalizedEmail,
+    isStrongPassword(password) ? hashPassword(password) : null,
+    String(display_name || '新用户').trim(),
+    nowIso,
+    nowIso,
+  );
+  db.prepare('UPDATE auth_email_codes SET used_at = ? WHERE id = ?').run(nowIso, row.id);
+
+  const user = db.prepare('SELECT * FROM auth_users WHERE id = ?').get(info.lastInsertRowid);
+  const token = createSessionToken();
+  const expires = new Date(now.getTime() + 1000 * 60 * 60 * 24 * 30).toISOString();
+  db.prepare(
+    `INSERT INTO auth_sessions(token, user_id, provider, owner_hint, expires_at, created_at, last_seen_at)
+     VALUES (?, ?, 'email_code', 'me', ?, ?, ?)`,
+  ).run(token, user.id, expires, nowIso, nowIso);
+  writeAuthEvent({
+    action: 'register_email_code_success',
+    email: normalizedEmail,
+    clientKey,
+    success: 1,
+    detail: 'ok',
+  });
+
+  res.json({
+    code: 200,
+    message: '验证码注册成功',
+    result: {
+      token,
+      provider: 'email_code',
+      expires_at: expires,
+      user: {
+        id: user.id,
+        email: user.email,
+        display_name: user.display_name,
+        status: user.status,
+      },
+    },
+  });
+});
+
 app.get('/auth/session', (req, res) => {
   const token = String(req.query.token || '').trim();
   if (!token) {
@@ -1493,7 +1873,7 @@ app.get('/auth/session', (req, res) => {
   }
   const session = db.prepare(
     `SELECT s.token, s.provider, s.owner_hint, s.expires_at, s.user_id,
-            u.display_name, u.phone, u.wechat_openid, u.status
+            u.display_name, u.phone, u.email, u.wechat_openid, u.status
      FROM auth_sessions s
      JOIN auth_users u ON u.id = s.user_id
      WHERE s.token = ?`,
@@ -1521,6 +1901,7 @@ app.get('/auth/session', (req, res) => {
         id: session.user_id,
         display_name: session.display_name,
         phone: session.phone,
+        email: session.email,
         wechat_openid: session.wechat_openid,
         status: session.status,
       },
@@ -1549,9 +1930,10 @@ app.get('/export/snapshot', (req, res) => {
     profiles: db.prepare('SELECT * FROM profiles ORDER BY owner ASC').all(),
     settings: db.prepare('SELECT * FROM app_settings ORDER BY owner ASC').all(),
     notifications: db.prepare('SELECT * FROM notifications ORDER BY id DESC').all(),
-    auth_users: db.prepare('SELECT id, phone, wechat_openid, display_name, status, created_at, updated_at FROM auth_users ORDER BY id DESC').all(),
+    auth_users: db.prepare('SELECT id, phone, email, wechat_openid, display_name, status, failed_login_count, locked_until, created_at, updated_at FROM auth_users ORDER BY id DESC').all(),
     auth_sessions: db.prepare('SELECT token, user_id, provider, owner_hint, expires_at, created_at, last_seen_at FROM auth_sessions ORDER BY created_at DESC').all(),
     auth_security_events: db.prepare('SELECT * FROM auth_security_events ORDER BY id DESC LIMIT 500').all(),
+    auth_email_codes: db.prepare('SELECT * FROM auth_email_codes ORDER BY id DESC LIMIT 200').all(),
   };
   res.json({ code: 200, message: '导出快照成功', result });
 });

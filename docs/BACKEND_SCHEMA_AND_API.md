@@ -91,9 +91,10 @@
 - `created_at` TEXT NOT NULL
 
 ### 2.9 `auth_users`（新增）
-账号用户表（手机号 / 微信）
+账号用户表（手机号 / 邮箱 / 微信）
 - `id` INTEGER PK AUTOINCREMENT
 - `phone` TEXT UNIQUE (可空)
+- `email` TEXT UNIQUE (可空)
 - `wechat_openid` TEXT UNIQUE (可空)
 - `password_hash` TEXT (可空，微信账号可无密码)
 - `display_name` TEXT NOT NULL
@@ -107,7 +108,7 @@
 登录会话表（Token）
 - `token` TEXT PK
 - `user_id` INTEGER NOT NULL
-- `provider` TEXT NOT NULL (`phone|wechat`)
+- `provider` TEXT NOT NULL (`phone|phone_code|email_code|wechat`)
 - `owner_hint` TEXT NOT NULL DEFAULT `me`
 - `expires_at` TEXT NOT NULL
 - `created_at` TEXT NOT NULL
@@ -123,11 +124,22 @@
 - `used_at` TEXT
 - `created_at` TEXT NOT NULL
 
-### 2.12 `auth_security_events`（新增）
+### 2.12 `auth_email_codes`（新增）
+邮箱验证码表
+- `id` INTEGER PK AUTOINCREMENT
+- `email` TEXT NOT NULL
+- `code` TEXT NOT NULL
+- `purpose` TEXT NOT NULL (`login|register`)
+- `expires_at` TEXT NOT NULL
+- `used_at` TEXT
+- `created_at` TEXT NOT NULL
+
+### 2.13 `auth_security_events`（新增）
 认证安全事件审计（限流/失败统计）
 - `id` INTEGER PK AUTOINCREMENT
 - `action` TEXT NOT NULL
 - `phone` TEXT
+- `email` TEXT
 - `client_key` TEXT
 - `success` INTEGER NOT NULL DEFAULT 0
 - `detail` TEXT
@@ -179,7 +191,7 @@
 
 ### 3.6 快照导出
 - `GET /export/snapshot`
-  - 现包含：`tasks/points/ledger/products/owned_items/profiles/settings/notifications/auth_users/auth_sessions/auth_security_events`
+  - 现包含：`tasks/points/ledger/products/owned_items/profiles/settings/notifications/auth_users/auth_sessions/auth_security_events/auth_email_codes`
 
 ### 3.7 认证（新增）
 - `POST /auth/register/phone`
@@ -199,6 +211,17 @@
   - 安全：同客户端 10 分钟失败过多会被限流；同账号连续失败 5 次锁定 15 分钟
 - `POST /auth/register/phone-code`
   - 入参：`phone/code/display_name/password?`
+  - 说明：验证码注册成功后直接签发会话
+- `POST /auth/email/send-code`
+  - 入参：`email/purpose(login|register)`
+  - 限流：同邮箱 60 秒内不可重复发码；同邮箱 10 分钟最多 5 次；同客户端 10 分钟最多 12 次
+  - 过期：验证码 5 分钟有效
+- `POST /auth/login/email-code`
+  - 入参：`email/code`
+  - 说明：验证码登录（provider=`email_code`）
+  - 安全：同客户端 10 分钟失败过多会被限流；同账号连续失败 5 次锁定 15 分钟
+- `POST /auth/register/email-code`
+  - 入参：`email/code/display_name/password?`
   - 说明：验证码注册成功后直接签发会话
 - `POST /auth/login/wechat`
   - 入参：`wechat_code/display_name`
@@ -221,6 +244,14 @@
   - `TENCENT_SMS_TEMPLATE_ID`
   - 可选：`TENCENT_SMS_REGION`（默认 `ap-guangzhou`）
   - 可选：`TENCENT_SMS_HOST`（默认 `sms.tencentcloudapi.com`）
+- `EMAIL_PROVIDER=mock|smtp`
+  - 当 `EMAIL_PROVIDER=smtp` 时需要：
+    - `EMAIL_SMTP_HOST`
+    - `EMAIL_SMTP_PORT`（默认 25）
+    - `EMAIL_SMTP_USER` / `EMAIL_SMTP_PASS`（可选）
+    - `EMAIL_SMTP_SECURE`（true/false）
+    - `EMAIL_FROM`（发件人）
+    - `EMAIL_SUBJECT`（可选，邮件主题）
 
 ## 4. 请求示例
 

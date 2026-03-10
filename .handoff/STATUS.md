@@ -1,6 +1,6 @@
 # Priority First 拆分项目交接清单
 
-更新时间：2026-03-08
+更新时间：2026-03-10
 
 ## 已完成
 - [x] 拆分项目目录重组为单一根目录：
@@ -441,6 +441,23 @@ flutter run -d 55c83fe9
   - `docs/BACKEND_SCHEMA_AND_API.md` 增加腾讯云短信必填/可选环境变量
 - 验证：
   - `node --check backend/src/sms_provider.js` 通过
+
+## Codex 第二十二轮（2026-03-10）
+- 邮件验证码能力补齐：
+  - 后端新增 `auth_email_codes` 表与邮箱验证码接口：
+    - `POST /auth/email/send-code`
+    - `POST /auth/login/email-code`
+    - `POST /auth/register/email-code`
+  - `auth_users` 增加 `email` 字段并建唯一索引
+  - `auth_security_events` 增加 `email` 字段，用于邮箱验证码限流与审计
+- 邮件 provider 抽象：
+  - 新增 `backend/src/email_provider.js`
+  - 支持 `mock` 与 `smtp` 两种 provider
+- 前端认证页接入邮箱验证码：
+  - `auth_api_service.dart` 新增邮箱验证码 API
+  - `auth_page.dart` 增加邮箱输入、发送验证码、邮箱验证码登录/注册
+- 文档同步：
+  - `docs/BACKEND_SCHEMA_AND_API.md` 已补充邮箱表结构与接口、SMTP 环境变量
   - 保留原有重复任务、周几重复、共同任务字段与保存逻辑
 - 已完成调试页重构：`frontend/lib/pages/debug_page.dart`
   - 顶部诊断 Hero：Base URL / 健康状态 / 日志数

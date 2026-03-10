@@ -14,6 +14,7 @@ class AuthSession {
     required this.userId,
     required this.displayName,
     this.phone,
+    this.email,
     this.wechatOpenid,
   });
 
@@ -23,6 +24,7 @@ class AuthSession {
   final int userId;
   final String displayName;
   final String? phone;
+  final String? email;
   final String? wechatOpenid;
 
   static AuthSession fromMap(Map<String, dynamic> map) {
@@ -34,6 +36,7 @@ class AuthSession {
       userId: (user['id'] as num).toInt(),
       displayName: user['display_name'] as String? ?? '用户',
       phone: user['phone'] as String?,
+      email: user['email'] as String?,
       wechatOpenid: user['wechat_openid'] as String?,
     );
   }
@@ -136,6 +139,26 @@ class AuthApiService {
     return AuthSession.fromMap((data['result'] as Map<String, dynamic>));
   }
 
+  Future<String> sendEmailCode({
+    required String email,
+    required String purpose,
+  }) async {
+    const path = '/auth/email/send-code';
+    final uri = _uri(path);
+    final payload = {'email': email, 'purpose': purpose};
+    ApiLogger.request('AuthApi', 'POST', uri, body: jsonEncode(payload));
+    final resp = await _client.post(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(payload),
+    );
+    ApiLogger.response('AuthApi', uri, resp);
+    _ensureOk(resp, path);
+    final data = jsonDecode(resp.body) as Map<String, dynamic>;
+    final result = data['result'] as Map<String, dynamic>;
+    return (result['debug_code'] as String?) ?? '';
+  }
+
   Future<AuthSession> loginWithPhoneCode({
     required String phone,
     required String code,
@@ -143,6 +166,25 @@ class AuthApiService {
     const path = '/auth/login/phone-code';
     final uri = _uri(path);
     final payload = {'phone': phone, 'code': code};
+    ApiLogger.request('AuthApi', 'POST', uri, body: jsonEncode(payload));
+    final resp = await _client.post(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(payload),
+    );
+    ApiLogger.response('AuthApi', uri, resp);
+    _ensureOk(resp, path);
+    final data = jsonDecode(resp.body) as Map<String, dynamic>;
+    return AuthSession.fromMap((data['result'] as Map<String, dynamic>));
+  }
+
+  Future<AuthSession> loginWithEmailCode({
+    required String email,
+    required String code,
+  }) async {
+    const path = '/auth/login/email-code';
+    final uri = _uri(path);
+    final payload = {'email': email, 'code': code};
     ApiLogger.request('AuthApi', 'POST', uri, body: jsonEncode(payload));
     final resp = await _client.post(
       uri,
@@ -165,6 +207,32 @@ class AuthApiService {
     final uri = _uri(path);
     final payload = {
       'phone': phone,
+      'code': code,
+      'display_name': displayName,
+      'password': password,
+    };
+    ApiLogger.request('AuthApi', 'POST', uri, body: jsonEncode(payload));
+    final resp = await _client.post(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(payload),
+    );
+    ApiLogger.response('AuthApi', uri, resp);
+    _ensureOk(resp, path);
+    final data = jsonDecode(resp.body) as Map<String, dynamic>;
+    return AuthSession.fromMap((data['result'] as Map<String, dynamic>));
+  }
+
+  Future<AuthSession> registerWithEmailCode({
+    required String email,
+    required String code,
+    required String displayName,
+    String? password,
+  }) async {
+    const path = '/auth/register/email-code';
+    final uri = _uri(path);
+    final payload = {
+      'email': email,
       'code': code,
       'display_name': displayName,
       'password': password,
