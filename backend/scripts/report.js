@@ -125,6 +125,16 @@ files.forEach((file) => {
 const outPath = resolveOut() || path.join(dir, 'REPORT.json');
 fs.writeFileSync(outPath, JSON.stringify(report, null, 2), 'utf8');
 
+fs.writeFileSync(path.join(dir, 'SUMMARY.txt'), [
+  `Generated at: ${report.generated_at}`,
+  `Files: ${report.summary.total_files}`,
+  `Verified: ${report.summary.verified}`,
+  `Mismatched: ${report.summary.mismatched}`,
+  `Missing checksums: ${report.summary.missing_checksums}`,
+  `Total bytes: ${report.summary.total_bytes}`,
+  `Upload pruned: ${report.summary.upload_pruned}`,
+].join('\n'), 'utf8');
+
 console.log(JSON.stringify({
   type: 'report_done',
   output: outPath,

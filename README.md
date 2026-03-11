@@ -91,9 +91,26 @@ npm run migrate
 迁移失败可写入通知日志（`NOTIFY_ON_FAIL=1`，写入 `backend/exports/notify.log`）。
 迁移前自动导出时，如失败/恢复，会写入对应导出目录 `events.jsonl`。
 可选：迁移恢复后自动生成报告（`MIGRATE_REPORT_ON_RESTORE=1`）。
+可选：迁移失败后自动生成报告（`MIGRATE_REPORT_ON_FAIL=1`）。
 可选：迁移恢复后自动上传导出包（需同时开启 `MIGRATE_RUN_PIPELINE=1`）：
 ```bash
 MIGRATE_UPLOAD_ON_RESTORE=1 MIGRATE_UPLOAD_TARGET=/path/to/upload npm run migrate
+```
+可选：上传完成后通知：
+```bash
+MIGRATE_NOTIFY_ON_RESTORE_UPLOAD=1 MIGRATE_UPLOAD_ON_RESTORE=1 MIGRATE_UPLOAD_TARGET=/path/to/upload npm run migrate
+```
+一键恢复联动（上传 + 校验 + 报告 + 通知）：
+```bash
+MIGRATE_RESTORE_AUTO_FLOW=1 MIGRATE_UPLOAD_TARGET=/path/to/upload npm run migrate
+```
+可选：上传汇总摘要（`SUMMARY.txt`）：
+```bash
+MIGRATE_RESTORE_AUTO_FLOW=1 MIGRATE_UPLOAD_SUMMARY=1 MIGRATE_UPLOAD_TARGET=/path/to/upload npm run migrate
+```
+可选：上传报告与清单（`REPORT.json` + `MANIFEST.json`）：
+```bash
+MIGRATE_RESTORE_AUTO_FLOW=1 MIGRATE_UPLOAD_REPORTS=1 MIGRATE_UPLOAD_TARGET=/path/to/upload npm run migrate
 ```
 
 ## 数据库导出
@@ -151,6 +168,7 @@ npm run compress -- --file /path/to/snapshot.sql
 cd /home/talent/projects/priority_first
 npm run report -- --dir /path/to/bundle-dir
 ```
+报告会生成 `SUMMARY.txt` 便于快速查看摘要。
 一键流水（导出 + 校验 + 报告）：
 ```bash
 cd /home/talent/projects/priority_first
@@ -212,6 +230,20 @@ UPLOAD_NOTIFY_ON_OK=1 npm run upload -- --src /path/to/bundle-dir --dest /path/t
 ```bash
 UPLOAD_RESTORE_ON_FAIL=1 npm run upload -- --src /path/to/bundle-dir --dest /path/to/upload --verify
 ```
+上传恢复成功会触发通知（复用 `UPLOAD_NOTIFY_ON_FAIL=1`）。
+上传成功自动清理旧包（需同时开启 `UPLOAD_KEEP`）：
+```bash
+UPLOAD_CLEANUP_ON_SUCCESS=1 UPLOAD_KEEP=5 npm run upload -- --src /path/to/bundle-dir --dest /path/to/upload
+```
+上传成功创建 latest 软链接：
+```bash
+UPLOAD_LATEST_LINK=/path/to/upload/latest npm run upload -- --src /path/to/bundle-dir --dest /path/to/upload
+```
+latest 软链接校验会检查 `MANIFEST.json` 是否存在。
+上传恢复后触发流水汇总（不重新导出）：
+```bash
+UPLOAD_TRIGGER_PIPELINE_SUMMARY=1 PIPELINE_SKIP_EXPORT=1 npm run upload -- --src /path/to/bundle-dir --dest /path/to/upload --verify
+```
 
 ## 数据库备份与恢复（生产建议）
 备份：
@@ -229,6 +261,30 @@ BACKUP_KEEP=10 npm run backup
 ```bash
 cd /home/talent/projects/priority_first
 npm run restore -- --from /path/to/backup.db
+```
+
+## 快速回滚（使用导出包）
+```bash
+cd /home/talent/projects/priority_first/backend
+./scripts/rollback.sh /path/to/bundle-dir
+```
+也可配合 latest 软链接：
+```bash
+./scripts/rollback.sh /path/to/upload/latest
+```
+回滚会自动校验 `MANIFEST.json` 的 `.sha256`（若存在）。
+可选：回滚后自动执行迁移：
+```bash
+ROLLBACK_RUN_MIGRATE=1 ./scripts/rollback.sh /path/to/bundle-dir
+```
+可选：回滚后生成报告：
+```bash
+ROLLBACK_RUN_REPORT=1 ./scripts/rollback.sh /path/to/bundle-dir
+```
+可选：回滚后上传报告并通知：
+```bash
+ROLLBACK_RUN_REPORT=1 ROLLBACK_UPLOAD_REPORT=1 ROLLBACK_UPLOAD_TARGET=/path/to/upload ROLLBACK_NOTIFY=1 \
+./scripts/rollback.sh /path/to/bundle-dir
 ```
 
 ## 数据库回滚（迁移）

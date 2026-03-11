@@ -160,7 +160,7 @@ try {
   if (pipelineDir) {
     const eventsPath = path.join(pipelineDir, 'events.jsonl');
     fs.appendFileSync(eventsPath, `${msg}\n`, 'utf8');
-    if (process.env.MIGRATE_REPORT_ON_RESTORE === '1') {
+    if (process.env.MIGRATE_REPORT_ON_FAIL === '1') {
       try {
         const report = path.join(__dirname, 'report.js');
         execSync(`node ${report} --dir ${pipelineDir}`, { stdio: 'inherit' });
@@ -204,9 +204,48 @@ try {
           const target = process.env.MIGRATE_UPLOAD_TARGET;
           if (target) {
             execSync(`node ${upload} --src ${pipelineDir} --dest ${target} --verify`, { stdio: 'inherit' });
+            if (process.env.MIGRATE_NOTIFY_ON_RESTORE_UPLOAD === '1') {
+              try {
+                const notify = path.join(__dirname, 'notify.js');
+                execSync(`node ${notify} --message=db_migration_restore_upload_done --dir ${target}`, { stdio: 'inherit' });
+              } catch (_) {
+                // ignore notify failure
+              }
+            }
           }
         } catch (_) {
           // ignore upload failure
+        }
+      }
+      if (process.env.MIGRATE_RESTORE_AUTO_FLOW === '1') {
+        try {
+          const upload = path.join(__dirname, 'upload.js');
+          const target = process.env.MIGRATE_UPLOAD_TARGET;
+          if (target) {
+            execSync(`node ${upload} --src ${pipelineDir} --dest ${target} --verify`, { stdio: 'inherit' });
+            const report = path.join(__dirname, 'report.js');
+            execSync(`node ${report} --dir ${pipelineDir}`, { stdio: 'inherit' });
+            const notify = path.join(__dirname, 'notify.js');
+            execSync(`node ${notify} --message=db_migration_restore_auto_flow_done --dir ${target}`, { stdio: 'inherit' });
+            if (process.env.MIGRATE_UPLOAD_SUMMARY === '1') {
+              const summaryPath = path.join(pipelineDir, 'SUMMARY.txt');
+              if (fs.existsSync(summaryPath)) {
+                execSync(`node ${upload} --src ${summaryPath} --dest ${path.join(target, 'SUMMARY.txt')}`, { stdio: 'inherit' });
+              }
+            }
+            if (process.env.MIGRATE_UPLOAD_REPORTS === '1') {
+              const reportPath = path.join(pipelineDir, 'REPORT.json');
+              const manifestPath = path.join(pipelineDir, 'MANIFEST.json');
+              if (fs.existsSync(reportPath)) {
+                execSync(`node ${upload} --src ${reportPath} --dest ${path.join(target, 'REPORT.json')}`, { stdio: 'inherit' });
+              }
+              if (fs.existsSync(manifestPath)) {
+                execSync(`node ${upload} --src ${manifestPath} --dest ${path.join(target, 'MANIFEST.json')}`, { stdio: 'inherit' });
+              }
+            }
+          }
+        } catch (_) {
+          // ignore flow failure
         }
       }
       if (process.env.NOTIFY_ON_FAIL === '1') {

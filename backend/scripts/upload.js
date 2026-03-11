@@ -47,12 +47,14 @@ const dest = resolveArg(args, '--dest') || process.env.UPLOAD_TARGET || null;
 const verify = args.includes('--verify') || process.env.UPLOAD_VERIFY === '1';
 const deleteOnFail = args.includes('--delete-on-fail') || process.env.UPLOAD_VERIFY_FAIL_DELETE === '1';
 const keep = Number(process.env.UPLOAD_KEEP || 0);
+const cleanupOnSuccess = args.includes('--cleanup-on-success') || process.env.UPLOAD_CLEANUP_ON_SUCCESS === '1';
 const lockTtlMs = Number(process.env.UPLOAD_LOCK_TTL_MS || 10 * 60 * 1000);
 const forceUnlock = args.includes('--force-unlock') || process.env.UPLOAD_FORCE_UNLOCK === '1';
 const notifyOnFail = args.includes('--notify-fail') || process.env.UPLOAD_NOTIFY_ON_FAIL === '1';
 const notifyOnSuccess = args.includes('--notify-ok') || process.env.UPLOAD_NOTIFY_ON_OK === '1';
 const autoReport = process.env.UPLOAD_AUTO_REPORT === '1';
 const restoreOnFail = args.includes('--restore-on-fail') || process.env.UPLOAD_RESTORE_ON_FAIL === '1';
+const latestLink = process.env.UPLOAD_LATEST_LINK || null;
 
 if (!src || !dest) {
   console.error(JSON.stringify({
@@ -217,8 +219,38 @@ if (verify) {
             ts: new Date().toISOString(),
           });
           fs.appendFileSync(eventsPath, `${restoreEvent}\n`, 'utf8');
+          if (autoReport) {
+            try {
+              const report = path.join(__dirname, 'report.js');
+              execSync(`node ${report} --dir ${dest}`, { stdio: 'inherit' });
+            } catch (_) {
+              // ignore report failure
+            }
+          }
+          if (notifyOnFail) {
+            try {
+              const notify = path.join(__dirname, 'notify.js');
+              execSync(`node ${notify} --message=upload_restore_done --dir ${dest}`, { stdio: 'inherit' });
+            } catch (_) {
+              // ignore notify failure
+            }
+          }
+          if (process.env.UPLOAD_TRIGGER_PIPELINE_SUMMARY === '1') {
+            try {
+              const pipeline = path.join(__dirname, 'pipeline.js');
+              execSync(`node ${pipeline} --out ${dest}`, { stdio: 'inherit' });
+            } catch (_) {
+              // ignore pipeline failure
+            }
+          }
         }
       } catch (_) {
+        const restoreFail = JSON.stringify({
+          type: 'upload_restore_failed',
+          dest,
+          ts: new Date().toISOString(),
+        });
+        fs.appendFileSync(eventsPath, `${restoreFail}\n`, 'utf8');
         // ignore restore failure
       }
     }
@@ -264,6 +296,38 @@ if (notifyOnSuccess) {
     execSync(`node ${notify} --message=upload_ok --dir ${dest}`, { stdio: 'inherit' });
   } catch (_) {
     // ignore notify failure
+  }
+}
+
+if (cleanupOnSuccess && keep > 0) {
+  // already pruned above; write a cleanup event for visibility
+  const cleanupEvent = JSON.stringify({
+    type: 'upload_cleanup_done',
+    pruned,
+    ts: new Date().toISOString(),
+  });
+  fs.appendFileSync(eventsPath, `${cleanupEvent}\n`, 'utf8');
+}
+
+if (latestLink && fs.existsSync(dest) && fs.lstatSync(dest).isDirectory()) {
+  try {
+    const manifestPath = path.join(dest, 'MANIFEST.json');
+    if (!fs.existsSync(manifestPath)) {
+      throw new Error('missing MANIFEST.json');
+    }
+    if (fs.existsSync(latestLink)) {
+      fs.unlinkSync(latestLink);
+    }
+    fs.symlinkSync(dest, latestLink, 'dir');
+    const linkEvent = JSON.stringify({
+      type: 'upload_latest_link',
+      link: latestLink,
+      target: dest,
+      ts: new Date().toISOString(),
+    });
+    fs.appendFileSync(eventsPath, `${linkEvent}\n`, 'utf8');
+  } catch (_) {
+    // ignore link failure
   }
 }
 

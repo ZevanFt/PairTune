@@ -33,8 +33,10 @@ const logEvent = (event) => {
 };
 
 logEvent({ type: 'pipeline_start', output: outputDir });
-execSync(`node ${path.join(__dirname, 'export_bundle.js')} --out ${outputDir}`, { stdio: 'inherit' });
-logEvent({ type: 'pipeline_export_done' });
+if (process.env.PIPELINE_SKIP_EXPORT !== '1') {
+  execSync(`node ${path.join(__dirname, 'export_bundle.js')} --out ${outputDir}`, { stdio: 'inherit' });
+  logEvent({ type: 'pipeline_export_done' });
+}
 execSync(`node ${path.join(__dirname, 'verify_bundle.js')} --dir ${outputDir}`, { stdio: 'inherit' });
 logEvent({ type: 'pipeline_verify_done' });
 execSync(`node ${path.join(__dirname, 'report.js')} --dir ${outputDir}`, { stdio: 'inherit' });
