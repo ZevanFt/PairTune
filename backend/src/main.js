@@ -6,6 +6,7 @@ const cors = require('cors');
 const Database = require('better-sqlite3');
 const { createSmsProvider } = require('./sms_provider');
 const { createEmailProvider } = require('./email_provider');
+const { runMigrations } = require('./db_migrate');
 
 function loadEnvFile() {
   const envPath = path.join(__dirname, '..', '.env.local');
@@ -120,6 +121,12 @@ function logEvent(type, detail = {}) {
   console.log(JSON.stringify({ type, ...detail, ts: nowIso() }));
 }
 
+runMigrations({
+  db,
+  migrationsDir: path.join(__dirname, '..', 'migrations'),
+  logger: (event, detail) => logEvent(event, detail),
+});
+
 function isInviteUsable(invite) {
   if (!invite) return { ok: false, reason: '邀请码不存在' };
   if (invite.status !== 'active') return { ok: false, reason: '邀请码不可用' };
@@ -130,6 +137,46 @@ function isInviteUsable(invite) {
     return { ok: false, reason: '邀请码已用尽' };
   }
   return { ok: true, reason: null };
+}
+
+function parseRangeDays(value) {
+  const raw = String(value || '').trim().toLowerCase();
+  if (raw === '30d') return 30;
+  if (raw === '90d') return 90;
+  return 7;
+}
+
+function startOfDay(date) {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function formatDateKey(date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function buildDateSeries(days) {
+  const today = startOfDay(new Date());
+  const series = [];
+  for (let i = days - 1; i >= 0; i -= 1) {
+    const d = new Date(today);
+    d.setDate(today.getDate() - i);
+    series.push(formatDateKey(d));
+  }
+  return series;
+}
+
+function rangeStartIso(days) {
+  const today = startOfDay(new Date());
+  const start = new Date(today);
+  start.setDate(today.getDate() - (days - 1));
+  return start.toISOString();
+}
+
+function safeNumber(value) {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : 0;
 }
 
 function getClientKey(req) {
@@ -1931,6 +1978,466 @@ app.post('/admin/users/:id/roles', (req, res) => {
   );
   roles.forEach((role) => insert.run(userId, role.id, now));
   res.json({ code: 200, message: '用户角色更新成功', result: { user_id: userId } });
+});
+
+app.get('/admin/bootstrap/status', (req, res) => {
+  const admin = db.prepare(
+    `SELECT id FROM auth_users WHERE role = 'admin' ORDER BY id ASC LIMIT 1`,
+  ).get();
+  res.json({ code: 200, message: 'ok', result: { initialized: Boolean(admin) } });
+});
+
+app.post('/admin/bootstrap', (req, res) => {
+  const { account, password, display_name } = req.body || {};
+  const normalizedAccount = normalizeAccount(account);
+  const displayName = String(display_name || '').trim();
+  if (!isAccount(normalizedAccount)) {
+    return res.status(400).json({ code: 400, message: '账号格式非法', result: null });
+  }
+  if (!isStrongPassword(password)) {
+    return res.status(400).json({ code: 400, message: '密码强度不足', result: null });
+  }
+  if (!displayName) {
+    return res.status(400).json({ code: 400, message: 'display_name 不能为空', result: null });
+  }
+  if (displayName.length > 20) {
+    return res.status(400).json({ code: 400, message: 'display_name 长度不能超过 20', result: null });
+  }
+
+  try {
+    const result = db.transaction(() => {
+      const existing = db.prepare(
+        `SELECT id FROM auth_users WHERE role = 'admin' ORDER BY id ASC LIMIT 1`,
+      ).get();
+      if (existing) {
+        const error = new Error('admin-exists');
+        error.code = 'admin-exists';
+        throw error;
+      }
+      const now = nowIso();
+      const info = db.prepare(
+        `INSERT INTO auth_users(account, phone, email, wechat_openid, password_hash, display_name, role, status, created_at, updated_at)
+         VALUES (?, NULL, NULL, NULL, ?, ?, 'admin', 'active', ?, ?)`,
+      ).run(
+        normalizedAccount,
+        hashPassword(password),
+        displayName,
+        now,
+        now,
+      );
+      const adminRole = db.prepare('SELECT id FROM auth_roles WHERE name = ?').get('admin');
+      if (adminRole) {
+        db.prepare(
+          'INSERT OR IGNORE INTO auth_user_roles(user_id, role_id, created_at) VALUES (?, ?, ?)',
+        ).run(info.lastInsertRowid, adminRole.id, now);
+      }
+      logEvent('admin_bootstrap_success', {
+        account: normalizedAccount,
+        user_id: info.lastInsertRowid,
+      });
+      return { account: normalizedAccount, display_name: displayName };
+    })();
+
+    res.json({ code: 200, message: '初始化成功', result });
+  } catch (error) {
+    if (error?.code === 'admin-exists') {
+      return res.status(409).json({ code: 409, message: '管理员已初始化', result: null });
+    }
+    console.error('[admin] bootstrap failed', error);
+    return res.status(500).json({ code: 500, message: '初始化失败', result: null });
+  }
+});
+
+app.get('/admin/stats/overview', (req, res) => {
+  const session = requirePermission(req, res, 'admin.dashboard.view');
+  if (!session) return;
+  const days = parseRangeDays(req.query?.range);
+  const since = rangeStartIso(days);
+  const totalUsers = safeNumber(db.prepare('SELECT COUNT(1) AS count FROM auth_users').get().count);
+  const newUsers = safeNumber(
+    db.prepare('SELECT COUNT(1) AS count FROM auth_users WHERE created_at >= ?').get(since).count,
+  );
+  const activeUsers = safeNumber(
+    db.prepare('SELECT COUNT(DISTINCT user_id) AS count FROM auth_sessions WHERE last_seen_at >= ?')
+      .get(since).count,
+  );
+  const tasksCreated = safeNumber(
+    db.prepare('SELECT COUNT(1) AS count FROM tasks WHERE created_at >= ?').get(since).count,
+  );
+  const tasksCompleted = safeNumber(
+    db.prepare('SELECT COUNT(1) AS count FROM tasks WHERE is_done = 1 AND updated_at >= ?')
+      .get(since).count,
+  );
+  const completionRate = tasksCreated ? tasksCompleted / tasksCreated : 0;
+  const pointsIssued = safeNumber(
+    db.prepare(
+      `SELECT SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END) AS total
+       FROM point_ledger WHERE created_at >= ?`,
+    ).get(since).total,
+  );
+  const pointsSpent = safeNumber(
+    db.prepare(
+      `SELECT SUM(CASE WHEN amount < 0 THEN -amount ELSE 0 END) AS total
+       FROM point_ledger WHERE created_at >= ?`,
+    ).get(since).total,
+  );
+  const productsPublished = safeNumber(
+    db.prepare('SELECT COUNT(1) AS count FROM products WHERE created_at >= ?').get(since).count,
+  );
+  const exchanges = safeNumber(
+    db.prepare('SELECT COUNT(1) AS count FROM owned_items WHERE created_at >= ?').get(since).count,
+  );
+  const inviteCreated = safeNumber(
+    db.prepare('SELECT COUNT(1) AS count FROM auth_invite_codes WHERE created_at >= ?')
+      .get(since).count,
+  );
+  const inviteUsed = safeNumber(
+    db.prepare('SELECT COUNT(1) AS count FROM auth_invite_codes WHERE used_at >= ?')
+      .get(since).count,
+  );
+  const inviteConversion = inviteCreated ? inviteUsed / inviteCreated : 0;
+
+  res.json({
+    code: 200,
+    message: 'ok',
+    result: {
+      range: `${days}d`,
+      since,
+      users: {
+        total: totalUsers,
+        new: newUsers,
+        active: activeUsers,
+      },
+      tasks: {
+        created: tasksCreated,
+        completed: tasksCompleted,
+        completion_rate: completionRate,
+      },
+      points: {
+        issued: pointsIssued,
+        spent: pointsSpent,
+        net: pointsIssued - pointsSpent,
+      },
+      store: {
+        products: productsPublished,
+        exchanges,
+      },
+      invites: {
+        created: inviteCreated,
+        used: inviteUsed,
+        conversion_rate: inviteConversion,
+      },
+      updated_at: nowIso(),
+    },
+  });
+});
+
+app.get('/admin/stats/series', (req, res) => {
+  const session = requirePermission(req, res, 'admin.dashboard.view');
+  if (!session) return;
+  const days = parseRangeDays(req.query?.range);
+  const since = rangeStartIso(days);
+  const series = buildDateSeries(days);
+
+  const userRows = db.prepare(
+    `SELECT substr(created_at, 1, 10) AS date, COUNT(1) AS count
+     FROM auth_users WHERE created_at >= ? GROUP BY date`,
+  ).all(since);
+  const taskCreatedRows = db.prepare(
+    `SELECT substr(created_at, 1, 10) AS date, COUNT(1) AS count
+     FROM tasks WHERE created_at >= ? GROUP BY date`,
+  ).all(since);
+  const taskDoneRows = db.prepare(
+    `SELECT substr(updated_at, 1, 10) AS date, COUNT(1) AS count
+     FROM tasks WHERE is_done = 1 AND updated_at >= ? GROUP BY date`,
+  ).all(since);
+  const pointRows = db.prepare(
+    `SELECT substr(created_at, 1, 10) AS date,
+            SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END) AS issued,
+            SUM(CASE WHEN amount < 0 THEN -amount ELSE 0 END) AS spent
+     FROM point_ledger WHERE created_at >= ? GROUP BY date`,
+  ).all(since);
+  const storeRows = db.prepare(
+    `SELECT substr(created_at, 1, 10) AS date, COUNT(1) AS count
+     FROM owned_items WHERE created_at >= ? GROUP BY date`,
+  ).all(since);
+
+  const userMap = new Map(userRows.map((row) => [row.date, safeNumber(row.count)]));
+  const taskCreateMap = new Map(taskCreatedRows.map((row) => [row.date, safeNumber(row.count)]));
+  const taskDoneMap = new Map(taskDoneRows.map((row) => [row.date, safeNumber(row.count)]));
+  const pointMap = new Map(pointRows.map((row) => [
+    row.date,
+    { issued: safeNumber(row.issued), spent: safeNumber(row.spent) },
+  ]));
+  const storeMap = new Map(storeRows.map((row) => [row.date, safeNumber(row.count)]));
+
+  const resultSeries = series.map((date) => {
+    const points = pointMap.get(date) || { issued: 0, spent: 0 };
+    return {
+      date,
+      users_new: userMap.get(date) || 0,
+      tasks_created: taskCreateMap.get(date) || 0,
+      tasks_completed: taskDoneMap.get(date) || 0,
+      points_issued: points.issued,
+      points_spent: points.spent,
+      store_exchanges: storeMap.get(date) || 0,
+    };
+  });
+
+  res.json({
+    code: 200,
+    message: 'ok',
+    result: {
+      range: `${days}d`,
+      series: resultSeries,
+    },
+  });
+});
+
+app.get('/admin/stats/tasks', (req, res) => {
+  const session = requirePermission(req, res, 'admin.tasks.view');
+  if (!session) return;
+  const days = parseRangeDays(req.query?.range);
+  const since = rangeStartIso(days);
+  const created = safeNumber(
+    db.prepare('SELECT COUNT(1) AS count FROM tasks WHERE created_at >= ?').get(since).count,
+  );
+  const completed = safeNumber(
+    db.prepare('SELECT COUNT(1) AS count FROM tasks WHERE is_done = 1 AND updated_at >= ?')
+      .get(since).count,
+  );
+  const completionRate = created ? completed / created : 0;
+  const quadrantRows = db.prepare(
+    `SELECT quadrant, COUNT(1) AS count
+     FROM tasks WHERE created_at >= ? GROUP BY quadrant`,
+  ).all(since);
+  const quadrantMap = new Map(quadrantRows.map((row) => [Number(row.quadrant), safeNumber(row.count)]));
+  const quadrant = [1, 2, 3, 4].map((value) => ({ quadrant: value, count: quadrantMap.get(value) || 0 }));
+  const repeatCount = safeNumber(
+    db.prepare(
+      `SELECT COUNT(1) AS count FROM tasks
+       WHERE created_at >= ? AND repeat_type != 'none'`,
+    ).get(since).count,
+  );
+  const repeatRatio = created ? repeatCount / created : 0;
+
+  res.json({
+    code: 200,
+    message: 'ok',
+    result: {
+      range: `${days}d`,
+      created,
+      completed,
+      completion_rate: completionRate,
+      quadrant,
+      repeat: {
+        count: repeatCount,
+        ratio: repeatRatio,
+      },
+    },
+  });
+});
+
+app.get('/admin/stats/points', (req, res) => {
+  const session = requirePermission(req, res, 'admin.points.view');
+  if (!session) return;
+  const days = parseRangeDays(req.query?.range);
+  const since = rangeStartIso(days);
+  const issued = safeNumber(
+    db.prepare(
+      `SELECT SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END) AS total
+       FROM point_ledger WHERE created_at >= ?`,
+    ).get(since).total,
+  );
+  const spent = safeNumber(
+    db.prepare(
+      `SELECT SUM(CASE WHEN amount < 0 THEN -amount ELSE 0 END) AS total
+       FROM point_ledger WHERE created_at >= ?`,
+    ).get(since).total,
+  );
+  const balanceTotal = safeNumber(
+    db.prepare('SELECT SUM(points) AS total FROM point_wallets').get().total,
+  );
+  const walletCount = safeNumber(
+    db.prepare('SELECT COUNT(1) AS count FROM point_wallets').get().count,
+  );
+  const topReasons = db.prepare(
+    `SELECT reason,
+            SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END) AS issued,
+            SUM(CASE WHEN amount < 0 THEN -amount ELSE 0 END) AS spent,
+            COUNT(1) AS count
+     FROM point_ledger WHERE created_at >= ?
+     GROUP BY reason
+     ORDER BY (issued + spent) DESC
+     LIMIT 10`,
+  ).all(since).map((row) => ({
+    reason: row.reason,
+    issued: safeNumber(row.issued),
+    spent: safeNumber(row.spent),
+    count: safeNumber(row.count),
+  }));
+
+  res.json({
+    code: 200,
+    message: 'ok',
+    result: {
+      range: `${days}d`,
+      issued,
+      spent,
+      net: issued - spent,
+      balance_total: balanceTotal,
+      balance_avg: walletCount ? balanceTotal / walletCount : 0,
+      top_reasons: topReasons,
+    },
+  });
+});
+
+app.get('/admin/stats/store', (req, res) => {
+  const session = requirePermission(req, res, 'admin.store.view');
+  if (!session) return;
+  const days = parseRangeDays(req.query?.range);
+  const since = rangeStartIso(days);
+  const productsPublished = safeNumber(
+    db.prepare('SELECT COUNT(1) AS count FROM products WHERE created_at >= ?').get(since).count,
+  );
+  const productsTotal = safeNumber(
+    db.prepare('SELECT COUNT(1) AS count FROM products').get().count,
+  );
+  const stockTotal = safeNumber(
+    db.prepare('SELECT SUM(stock) AS total FROM products').get().total,
+  );
+  const exchanges = safeNumber(
+    db.prepare('SELECT COUNT(1) AS count FROM owned_items WHERE created_at >= ?').get(since).count,
+  );
+  const topProducts = db.prepare(
+    `SELECT oi.product_id,
+            oi.product_name,
+            COUNT(1) AS exchanges,
+            SUM(oi.points_spent) AS points_spent,
+            COALESCE(p.stock, 0) AS stock
+     FROM owned_items oi
+     LEFT JOIN products p ON p.id = oi.product_id
+     WHERE oi.created_at >= ?
+     GROUP BY oi.product_id, oi.product_name, p.stock
+     ORDER BY exchanges DESC, points_spent DESC
+     LIMIT 10`,
+  ).all(since).map((row) => ({
+    product_id: row.product_id,
+    name: row.product_name,
+    exchanges: safeNumber(row.exchanges),
+    points_spent: safeNumber(row.points_spent),
+    stock: safeNumber(row.stock),
+  }));
+
+  res.json({
+    code: 200,
+    message: 'ok',
+    result: {
+      range: `${days}d`,
+      products_published: productsPublished,
+      products_total: productsTotal,
+      stock_total: stockTotal,
+      exchanges,
+      top_products: topProducts,
+    },
+  });
+});
+
+app.get('/admin/stats/invite', (req, res) => {
+  const session = requirePermission(req, res, 'admin.invites.view');
+  if (!session) return;
+  const days = parseRangeDays(req.query?.range);
+  const since = rangeStartIso(days);
+  const created = safeNumber(
+    db.prepare('SELECT COUNT(1) AS count FROM auth_invite_codes WHERE created_at >= ?')
+      .get(since).count,
+  );
+  const used = safeNumber(
+    db.prepare('SELECT COUNT(1) AS count FROM auth_invite_codes WHERE used_at >= ?')
+      .get(since).count,
+  );
+  const statusRows = db.prepare(
+    `SELECT status, COUNT(1) AS count FROM auth_invite_codes GROUP BY status`,
+  ).all();
+  const statusMap = new Map(statusRows.map((row) => [row.status, safeNumber(row.count)]));
+
+  res.json({
+    code: 200,
+    message: 'ok',
+    result: {
+      range: `${days}d`,
+      created,
+      used,
+      status: {
+        active: statusMap.get('active') || 0,
+        disabled: statusMap.get('disabled') || 0,
+        exhausted: statusMap.get('exhausted') || 0,
+      },
+    },
+  });
+});
+
+app.get('/admin/security/events', (req, res) => {
+  const session = requirePermission(req, res, 'admin.security.view');
+  if (!session) return;
+  const days = parseRangeDays(req.query?.range);
+  const since = rangeStartIso(days);
+  const limit = Math.max(1, Math.min(200, Number(req.query?.limit || 50)));
+  const total = safeNumber(
+    db.prepare('SELECT COUNT(1) AS count FROM auth_security_events WHERE created_at >= ?')
+      .get(since).count,
+  );
+  const failed = safeNumber(
+    db.prepare(
+      `SELECT COUNT(1) AS count FROM auth_security_events
+       WHERE created_at >= ? AND success = 0`,
+    ).get(since).count,
+  );
+  const lockedUsers = safeNumber(
+    db.prepare(
+      `SELECT COUNT(1) AS count FROM auth_users
+       WHERE locked_until IS NOT NULL AND locked_until > ?`,
+    ).get(nowIso()).count,
+  );
+  const events = db.prepare(
+    `SELECT id, action, phone, email, client_key, success, detail, created_at
+     FROM auth_security_events
+     WHERE created_at >= ?
+     ORDER BY id DESC LIMIT ?`,
+  ).all(since, limit);
+
+  res.json({
+    code: 200,
+    message: 'ok',
+    result: {
+      range: `${days}d`,
+      total,
+      failed,
+      locked_users: lockedUsers,
+      events,
+    },
+  });
+});
+
+app.get('/admin/settings', (req, res) => {
+  const session = requirePermission(req, res, 'admin.settings.view');
+  if (!session) return;
+  const adminUser = db.prepare(
+    `SELECT account, display_name FROM auth_users WHERE role = 'admin' ORDER BY id ASC LIMIT 1`,
+  ).get();
+  res.json({
+    code: 200,
+    message: 'ok',
+    result: {
+      sms_provider: String(process.env.SMS_PROVIDER || 'mock'),
+      email_provider: String(process.env.EMAIL_PROVIDER || 'mock'),
+      admin_account: adminUser?.account || null,
+      admin_display_name: adminUser?.display_name || null,
+      server_time: nowIso(),
+      db_path: String(process.env.DB_PATH || 'default'),
+      node_env: String(process.env.NODE_ENV || 'development'),
+    },
+  });
 });
 
 app.post('/auth/email/send-code', (req, res) => {

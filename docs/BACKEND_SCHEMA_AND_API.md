@@ -335,6 +335,31 @@
   - 入参：`role_ids[]`
   - 说明：设置用户角色（覆盖式）
 
+### 3.10 管理后台统计与系统（新增）
+- `GET /admin/stats/overview?range=7d|30d|90d`
+  - 说明：仪表盘概览（用户、任务、积分、商城、邀请码）
+- `GET /admin/stats/series?range=7d|30d|90d`
+  - 说明：按天序列统计（用户新增、任务创建/完成、积分发放/消耗、兑换）
+- `GET /admin/stats/tasks?range=7d|30d|90d`
+  - 说明：任务运营（完成率、四象限分布、重复任务占比）
+- `GET /admin/stats/points?range=7d|30d|90d`
+  - 说明：积分运营（发放/消耗、余额、原因分布）
+- `GET /admin/stats/store?range=7d|30d|90d`
+  - 说明：商城运营（发布、兑换、热门商品）
+- `GET /admin/stats/invite?range=7d|30d|90d`
+  - 说明：邀请码统计（创建/使用与状态分布）
+- `GET /admin/security/events?range=7d|30d|90d&limit=50`
+  - 说明：安全事件列表与失败统计
+- `GET /admin/settings`
+  - 说明：系统设置与运行信息（短信/邮件 Provider、环境、时间）
+
+### 3.11 管理后台初始化（新增）
+- `GET /admin/bootstrap/status`
+  - 说明：返回是否已初始化管理员
+- `POST /admin/bootstrap`
+  - 入参：`account/password/display_name`
+  - 说明：首次初始化管理员账号（仅允许未初始化时调用）
+
 ## 4. 请求示例
 
 ### 4.1 更新资料

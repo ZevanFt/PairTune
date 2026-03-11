@@ -5,7 +5,20 @@
   "main": "src/main.js",
   "scripts": {
     "dev": "node src/main.js",
-    "start": "node src/main.js"
+    "start": "node src/main.js",
+    "migrate": "node scripts/migrate.js",
+    "export": "node scripts/export.js",
+    "export:sql": "node scripts/export_sql.js",
+    "export:bundle": "node scripts/export_bundle.js",
+    "verify:bundle": "node scripts/verify_bundle.js",
+    "verify:file": "node scripts/verify_file.js",
+    "compress": "node scripts/compress.js",
+    "pipeline": "node scripts/pipeline.js",
+    "report": "node scripts/report.js",
+    "notify": "node scripts/notify.js",
+    "upload": "node scripts/upload.js",
+    "backup": "node scripts/backup.js",
+    "restore": "node scripts/restore.js"
   },
   "dependencies": {
     "better-sqlite3": "^11.8.1",

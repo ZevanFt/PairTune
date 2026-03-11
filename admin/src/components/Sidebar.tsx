@@ -26,7 +26,7 @@ export type NavKey =
 
 interface SidebarProps {
   active: NavKey;
-  onChange: (key: NavKey) => void;
+  onChange: (_key: NavKey) => void;
 }
 
 export function Sidebar({ active, onChange }: SidebarProps) {

@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Button, Card, Checkbox, Empty, Form, Input, Modal, Table, message } from 'antd';
+import { Button, Card, Checkbox, Form, Input, Modal, message } from 'antd';
 
 import { SectionHeader } from '../components/SectionHeader';
+import { SimpleTable } from '../components/SimpleTable';
 import { createRole, fetchPermissions, fetchRoles, Permission, Role, updateRole } from '../services/admin';
 import { t } from '../i18n';
 
@@ -19,7 +20,7 @@ export function Roles() {
       const [roleData, permData] = await Promise.all([fetchRoles(), fetchPermissions()]);
       setRoles(roleData);
       setPermissions(permData);
-    } catch (error) {
+    } catch {
       message.error(t('roles.loadFail'));
     } finally {
       setLoading(false);
@@ -62,7 +63,7 @@ export function Roles() {
       }
       setOpen(false);
       void load();
-    } catch (error) {
+    } catch {
       message.error(t('roles.saveFail'));
     }
   };
@@ -75,11 +76,10 @@ export function Roles() {
         action={<Button type="primary" onClick={openCreate}>{t('roles.create')}</Button>}
       />
       <Card className="shadow-soft rounded-xl2 border border-border">
-        <Table
-          dataSource={roles}
+        <SimpleTable
+          data={roles}
           rowKey="id"
           loading={loading}
-          locale={{ emptyText: <Empty description={t('common.empty')} /> }}
           columns={[
             { title: t('roles.columns.name'), dataIndex: 'name' },
             { title: t('roles.columns.desc'), dataIndex: 'description', render: (value) => value || t('common.dash') },

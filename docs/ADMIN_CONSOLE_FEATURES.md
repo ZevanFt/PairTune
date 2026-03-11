@@ -12,6 +12,11 @@
 - 仅管理员可访问
 - Token 持久化与会话校验
 
+### 1.1 初始化
+- 首次启动进入初始化页面
+- 录入管理员账号与密码
+- 初始化完成后进入登录页
+
 ### 2. 仪表盘（Dashboard）
 - 今日新增用户
 - DAU/WAU/MAU
@@ -77,12 +82,16 @@
 - `admin.full`（全量管理）
 
 ## 后端接口建议
-- `GET /admin/stats/overview`
+- `GET /admin/stats/overview?range=7d|30d|90d`
 - `GET /admin/stats/series?range=7d|30d|90d`
-- `GET /admin/stats/tasks`
-- `GET /admin/stats/points`
-- `GET /admin/stats/store`
-- `GET /admin/stats/invite`
+- `GET /admin/stats/tasks?range=7d|30d|90d`
+- `GET /admin/stats/points?range=7d|30d|90d`
+- `GET /admin/stats/store?range=7d|30d|90d`
+- `GET /admin/stats/invite?range=7d|30d|90d`
+- `GET /admin/security/events?range=7d|30d|90d&limit=50`
+- `GET /admin/settings`
+- `GET /admin/bootstrap/status`
+- `POST /admin/bootstrap`
 
 ## 说明
 后台只读统计接口与角色权限接口均需 `role=admin` 或具备相应权限点。

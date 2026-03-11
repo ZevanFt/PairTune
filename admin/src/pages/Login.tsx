@@ -26,7 +26,7 @@ export function Login({ onSuccess }: LoginProps) {
       localStorage.setItem('admin_token', session.token);
       localStorage.setItem('admin_user', JSON.stringify(session.user));
       onSuccess();
-    } catch (error) {
+    } catch {
       message.error(t('login.failed'));
     } finally {
       setLoading(false);

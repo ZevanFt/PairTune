@@ -1,0 +1,28 @@
+{
+  "name": "priority-first-dev",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently -n backend,admin -c blue,green \"npm -C backend run dev\" \"npm -C admin run dev\"",
+    "dev:backend": "npm -C backend run dev",
+    "dev:admin": "npm -C admin run dev",
+    "build:admin": "npm -C admin run build",
+    "start:backend": "npm -C backend run start",
+    "migrate": "npm -C backend run migrate",
+    "export": "npm -C backend run export",
+    "export:sql": "npm -C backend run export:sql",
+    "export:bundle": "npm -C backend run export:bundle",
+    "verify:bundle": "npm -C backend run verify:bundle",
+    "verify:file": "npm -C backend run verify:file",
+    "compress": "npm -C backend run compress",
+    "pipeline": "npm -C backend run pipeline",
+    "report": "npm -C backend run report",
+    "notify": "npm -C backend run notify",
+    "upload": "npm -C backend run upload",
+    "backup": "npm -C backend run backup",
+    "restore": "npm -C backend run restore",
+    "prod": "npm run migrate && npm run build:admin && npm run start:backend"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

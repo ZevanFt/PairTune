@@ -1,0 +1,24 @@
+DROP INDEX IF EXISTS idx_auth_permissions_code_unique;
+DROP INDEX IF EXISTS idx_auth_roles_name_unique;
+DROP INDEX IF EXISTS idx_auth_invite_codes_code_unique;
+DROP INDEX IF EXISTS idx_auth_users_email_unique;
+DROP INDEX IF EXISTS idx_auth_users_account_unique;
+
+DROP TABLE IF EXISTS auth_user_roles;
+DROP TABLE IF EXISTS auth_role_permissions;
+DROP TABLE IF EXISTS auth_permissions;
+DROP TABLE IF EXISTS auth_roles;
+DROP TABLE IF EXISTS auth_security_events;
+DROP TABLE IF EXISTS auth_invite_codes;
+DROP TABLE IF EXISTS auth_email_codes;
+DROP TABLE IF EXISTS auth_phone_codes;
+DROP TABLE IF EXISTS auth_sessions;
+DROP TABLE IF EXISTS auth_users;
+DROP TABLE IF EXISTS notifications;
+DROP TABLE IF EXISTS app_settings;
+DROP TABLE IF EXISTS profiles;
+DROP TABLE IF EXISTS owned_items;
+DROP TABLE IF EXISTS products;
+DROP TABLE IF EXISTS point_ledger;
+DROP TABLE IF EXISTS point_wallets;
+DROP TABLE IF EXISTS tasks;

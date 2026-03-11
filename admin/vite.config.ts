@@ -10,6 +10,7 @@ export default defineConfig({
   },
   build: {
     outDir: path.resolve(__dirname, '../backend/public/admin'),
-    emptyOutDir: true
+    emptyOutDir: true,
+    chunkSizeWarningLimit: 750
   }
 });

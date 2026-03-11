@@ -35,6 +35,28 @@ export const zhCN = {
     forbidden: '无管理员权限',
     failed: '登录失败'
   },
+  init: {
+    title: '初始化管理员',
+    hint: '首次使用需设置管理员账号',
+    account: '账号',
+    displayName: '昵称',
+    password: '密码',
+    passwordConfirm: '确认密码',
+    action: '完成初始化',
+    accountPlaceholder: 'admin_account',
+    displayNamePlaceholder: '管理员',
+    passwordPlaceholder: '至少 6 位',
+    passwordConfirmPlaceholder: '再次输入密码',
+    emptyError: '请填写完整信息',
+    confirmMismatch: '两次密码不一致',
+    success: '初始化成功，请登录',
+    failed: '初始化失败',
+    loading: '正在检查初始化状态',
+    loadingTime: '已等待 ',
+    loadFail: '初始化状态获取失败',
+    backendHint: '请确认后端已启动（端口 8110）',
+    retry: '重试'
+  },
   dashboard: {
     headline: '运营概览',
     users: '活跃用户',
@@ -46,7 +68,20 @@ export const zhCN = {
     range90: '近90天',
     growth: '用户增长趋势',
     overview: '任务与积分概览',
-    waiting: '等待统计接口'
+    waiting: '等待统计接口',
+    loadFail: '加载仪表盘数据失败',
+    newUsers: '新增 ',
+    tasksCreated: '创建 ',
+    pointsIssued: '发放 ',
+    storeProducts: '发布 ',
+    table: {
+      date: '日期',
+      usersNew: '新增用户',
+      tasksCreated: '创建任务',
+      tasksCompleted: '完成任务',
+      pointsNet: '净积分',
+      exchanges: '兑换量'
+    }
   },
   invites: {
     headline: '邀请码管理',
@@ -105,23 +140,75 @@ export const zhCN = {
   },
   tasks: {
     subtitle: '任务运营指标汇总',
-    waiting: '等待统计接口 /admin/stats/tasks'
+    waiting: '等待统计接口 /admin/stats/tasks',
+    loadFail: '加载任务运营失败',
+    created: '创建任务',
+    completed: '完成任务',
+    completionRate: '完成率',
+    repeat: '重复 ',
+    repeatRatio: '重复占比',
+    quadrantTitle: '四象限分布',
+    quadrant: '象限',
+    count: '数量',
+    ratio: '占比',
+    quadrantTotal: '任务总量'
   },
   points: {
     subtitle: '积分发放与消耗概览',
-    waiting: '等待统计接口 /admin/stats/points'
+    waiting: '等待统计接口 /admin/stats/points',
+    loadFail: '加载积分运营失败',
+    issued: '发放积分',
+    spent: '消耗积分',
+    net: '净流通',
+    balanceAvg: '人均余额 ',
+    balanceTotal: '余额总量',
+    reasonCount: '原因数量',
+    topReasons: '积分来源/去向',
+    reason: '原因',
+    count: '次数'
   },
   store: {
     subtitle: '商城运营数据',
-    waiting: '等待统计接口 /admin/stats/store'
+    waiting: '等待统计接口 /admin/stats/store',
+    loadFail: '加载商城运营失败',
+    published: '新发布商品',
+    totalProducts: '总商品 ',
+    exchanges: '兑换量',
+    stockTotal: '库存总量 ',
+    topProducts: '热门商品',
+    productName: '商品名称',
+    exchangeCount: '兑换次数',
+    pointsSpent: '消耗积分',
+    stock: '库存'
   },
   security: {
     subtitle: '登录失败与安全事件',
-    waiting: '等待安全审计接口'
+    waiting: '等待安全审计接口',
+    loadFail: '加载安全审计失败',
+    events: '安全事件',
+    failed: '失败次数',
+    locked: '锁定账号',
+    recent: '最近事件',
+    action: '事件类型',
+    target: '目标账号',
+    success: '结果',
+    successYes: '成功',
+    successNo: '失败',
+    detail: '详情',
+    time: '时间'
   },
   settings: {
     subtitle: '系统配置与运行状态',
-    waiting: '配置状态待接入'
+    waiting: '配置状态待接入',
+    loadFail: '加载系统设置失败',
+    smsProvider: '短信服务',
+    emailProvider: '邮箱服务',
+    adminAccount: '管理员账号',
+    adminName: '管理员名称',
+    nodeEnv: '运行环境',
+    runtime: '运行信息',
+    serverTime: '服务器时间',
+    dbPath: '数据库路径'
   },
   common: {
     search: '搜索',

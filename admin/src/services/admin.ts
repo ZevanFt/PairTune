@@ -34,6 +34,104 @@ export interface AdminUser {
   created_at: string;
 }
 
+export interface OverviewStats {
+  range: string;
+  since: string;
+  users: { total: number; new: number; active: number };
+  tasks: { created: number; completed: number; completion_rate: number };
+  points: { issued: number; spent: number; net: number };
+  store: { products: number; exchanges: number };
+  invites: { created: number; used: number; conversion_rate: number };
+  updated_at: string;
+}
+
+export interface SeriesStats {
+  range: string;
+  series: Array<{
+    date: string;
+    users_new: number;
+    tasks_created: number;
+    tasks_completed: number;
+    points_issued: number;
+    points_spent: number;
+    store_exchanges: number;
+  }>;
+}
+
+export interface TaskStats {
+  range: string;
+  created: number;
+  completed: number;
+  completion_rate: number;
+  quadrant: Array<{ quadrant: number; count: number }>;
+  repeat: { count: number; ratio: number };
+}
+
+export interface PointStats {
+  range: string;
+  issued: number;
+  spent: number;
+  net: number;
+  balance_total: number;
+  balance_avg: number;
+  top_reasons: Array<{ reason: string; issued: number; spent: number; count: number }>;
+}
+
+export interface StoreStats {
+  range: string;
+  products_published: number;
+  products_total: number;
+  stock_total: number;
+  exchanges: number;
+  top_products: Array<{
+    product_id: number;
+    name: string;
+    exchanges: number;
+    points_spent: number;
+    stock: number;
+  }>;
+}
+
+export interface InviteStats {
+  range: string;
+  created: number;
+  used: number;
+  status: { active: number; disabled: number; exhausted: number };
+}
+
+export interface SecurityEvent {
+  id: number;
+  action: string;
+  phone?: string;
+  email?: string;
+  client_key: string;
+  success: number;
+  detail?: string;
+  created_at: string;
+}
+
+export interface SecurityStats {
+  range: string;
+  total: number;
+  failed: number;
+  locked_users: number;
+  events: SecurityEvent[];
+}
+
+export interface AdminSettings {
+  sms_provider: string;
+  email_provider: string;
+  admin_account?: string | null;
+  admin_display_name?: string | null;
+  server_time: string;
+  db_path: string;
+  node_env: string;
+}
+
+export interface BootstrapStatus {
+  initialized: boolean;
+}
+
 export async function fetchInvites(status?: string) {
   const { data } = await api.get('/admin/invite-codes', { params: { status } });
   return data.result as InviteCode[];
@@ -89,4 +187,58 @@ export async function fetchUsers() {
 export async function updateUserRoles(id: number, roleIds: number[]) {
   const { data } = await api.post(`/admin/users/${id}/roles`, { role_ids: roleIds });
   return data.result as { user_id: number };
+}
+
+export async function fetchOverview(range: string) {
+  const { data } = await api.get('/admin/stats/overview', { params: { range } });
+  return data.result as OverviewStats;
+}
+
+export async function fetchSeries(range: string) {
+  const { data } = await api.get('/admin/stats/series', { params: { range } });
+  return data.result as SeriesStats;
+}
+
+export async function fetchTaskStats(range: string) {
+  const { data } = await api.get('/admin/stats/tasks', { params: { range } });
+  return data.result as TaskStats;
+}
+
+export async function fetchPointStats(range: string) {
+  const { data } = await api.get('/admin/stats/points', { params: { range } });
+  return data.result as PointStats;
+}
+
+export async function fetchStoreStats(range: string) {
+  const { data } = await api.get('/admin/stats/store', { params: { range } });
+  return data.result as StoreStats;
+}
+
+export async function fetchInviteStats(range: string) {
+  const { data } = await api.get('/admin/stats/invite', { params: { range } });
+  return data.result as InviteStats;
+}
+
+export async function fetchSecurityEvents(range: string, limit = 50) {
+  const { data } = await api.get('/admin/security/events', { params: { range, limit } });
+  return data.result as SecurityStats;
+}
+
+export async function fetchAdminSettings() {
+  const { data } = await api.get('/admin/settings');
+  return data.result as AdminSettings;
+}
+
+export async function fetchBootstrapStatus() {
+  const { data } = await api.get('/admin/bootstrap/status');
+  return data.result as BootstrapStatus;
+}
+
+export async function bootstrapAdmin(payload: {
+  account: string;
+  password: string;
+  display_name: string;
+}) {
+  const { data } = await api.post('/admin/bootstrap', payload);
+  return data.result as { account: string; display_name: string };
 }

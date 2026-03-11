@@ -1,16 +1,88 @@
-import { Card } from 'antd';
+import { Card, Segmented, message } from 'antd';
+import { useEffect, useState } from 'react';
 
 import { SectionHeader } from '../components/SectionHeader';
+import { StatCard } from '../components/StatCard';
+import { SimpleTable } from '../components/SimpleTable';
+import { fetchSecurityEvents, SecurityStats } from '../services/admin';
 import { t } from '../i18n';
 
+const rangeOptions = [
+  { label: t('dashboard.range7'), value: '7d' },
+  { label: t('dashboard.range30'), value: '30d' },
+  { label: t('dashboard.range90'), value: '90d' }
+];
+
+const formatNumber = (value: number) => new Intl.NumberFormat('zh-CN').format(value);
+
 export function Security() {
+  const [range, setRange] = useState('30d');
+  const [stats, setStats] = useState<SecurityStats | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const load = async (nextRange: string) => {
+    setLoading(true);
+    try {
+      const data = await fetchSecurityEvents(nextRange, 50);
+      setStats(data);
+    } catch {
+      message.error(t('security.loadFail'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void load(range);
+  }, [range]);
+
   return (
     <div className="space-y-6">
-      <SectionHeader title={t('nav.security')} subtitle={t('security.subtitle')} />
+      <SectionHeader
+        title={t('nav.security')}
+        subtitle={t('security.subtitle')}
+        action={(
+          <Segmented
+            options={rangeOptions}
+            value={range}
+            onChange={(value) => setRange(String(value))}
+          />
+        )}
+      />
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          label={t('security.events')}
+          value={formatNumber(stats?.total || 0)}
+        />
+        <StatCard
+          label={t('security.failed')}
+          value={formatNumber(stats?.failed || 0)}
+        />
+        <StatCard
+          label={t('security.locked')}
+          value={formatNumber(stats?.locked_users || 0)}
+        />
+      </div>
       <Card className="shadow-soft rounded-xl2 border border-border">
-        <div className="h-60 flex items-center justify-center text-muted">
-          {t('security.waiting')}
-        </div>
+        <div className="text-sm text-muted mb-3">{t('security.recent')}</div>
+        <SimpleTable
+          data={stats?.events || []}
+          loading={loading}
+          rowKey="id"
+          columns={[
+            { title: t('security.action'), dataIndex: 'action' },
+            {
+              title: t('security.target'),
+              render: (_, row) => row.email || row.phone || t('common.dash')
+            },
+            {
+              title: t('security.success'),
+              render: (_, row) => (row.success ? t('security.successYes') : t('security.successNo'))
+            },
+            { title: t('security.detail'), dataIndex: 'detail', render: (value) => value || t('common.dash') },
+            { title: t('security.time'), dataIndex: 'created_at' }
+          ]}
+        />
       </Card>
     </div>
   );

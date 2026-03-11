@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Button, Card, Empty, InputNumber, message, Modal, Table } from 'antd';
+import { Button, Card, InputNumber, message, Modal } from 'antd';
 
 import { SectionHeader } from '../components/SectionHeader';
 import { StatusBadge } from '../components/StatusBadge';
+import { SimpleTable } from '../components/SimpleTable';
 import { createInvites, disableInvite, fetchInvites, InviteCode } from '../services/admin';
 import { t } from '../i18n';
 
@@ -18,7 +19,7 @@ export function Invites() {
     try {
       const result = await fetchInvites();
       setData(result);
-    } catch (error) {
+    } catch {
       message.error(t('invites.loadFail'));
     } finally {
       setLoading(false);
@@ -39,7 +40,7 @@ export function Invites() {
       message.success(t('invites.createOk'));
       setOpen(false);
       void load();
-    } catch (error) {
+    } catch {
       message.error(t('invites.createFail'));
     }
   };
@@ -49,7 +50,7 @@ export function Invites() {
       await disableInvite(code);
       message.success(t('invites.disableOk'));
       void load();
-    } catch (error) {
+    } catch {
       message.error(t('invites.disableFail'));
     }
   };
@@ -62,14 +63,13 @@ export function Invites() {
         action={<Button type="primary" onClick={() => setOpen(true)}>{t('invites.create')}</Button>}
       />
       <Card className="shadow-soft rounded-xl2 border border-border">
-        <Table
-          dataSource={data}
+        <SimpleTable
+          data={data}
           rowKey="id"
           loading={loading}
-          locale={{ emptyText: <Empty description={t('common.empty')} /> }}
           columns={[
             { title: t('invites.columns.code'), dataIndex: 'code' },
-            { title: t('invites.columns.status'), dataIndex: 'status', render: (value) => <StatusBadge value={value} /> },
+            { title: t('invites.columns.status'), dataIndex: 'status', render: (value) => <StatusBadge value={String(value)} /> },
             { title: t('invites.columns.usage'), render: (_, row) => `${row.used_count}/${row.usage_limit}` },
             { title: t('invites.columns.created'), dataIndex: 'created_at' },
             { title: t('invites.columns.used'), dataIndex: 'used_at', render: (value) => value || t('common.dash') },

@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Card, Empty, Table, Tag, message } from 'antd';
+import { Card, message } from 'antd';
 
 import { SectionHeader } from '../components/SectionHeader';
+import { SimpleTable } from '../components/SimpleTable';
 import { AdminUser, fetchUsers } from '../services/admin';
 import { t } from '../i18n';
 
@@ -14,7 +15,7 @@ export function Users() {
     try {
       const result = await fetchUsers();
       setData(result);
-    } catch (error) {
+    } catch {
       message.error(t('users.loadFail'));
     } finally {
       setLoading(false);
@@ -29,20 +30,21 @@ export function Users() {
     <div className="space-y-6">
       <SectionHeader title={t('users.headline')} subtitle={t('users.subtitle')} />
       <Card className="shadow-soft rounded-xl2 border border-border">
-        <Table
-          dataSource={data}
+        <SimpleTable
+          data={data}
           rowKey="id"
           loading={loading}
-          locale={{ emptyText: <Empty description={t('common.empty')} /> }}
           columns={[
             { title: t('users.account'), dataIndex: 'account', render: (value) => value || t('common.dash') },
             { title: t('users.name'), dataIndex: 'display_name' },
             {
               title: t('users.role'),
               render: (_, row) => (
-                <div className="flex flex-wrap gap-1">
+                <div className="flex flex-wrap gap-2">
                   {row.roles.map((role) => (
-                    <Tag key={role.id}>{role.name}</Tag>
+                    <span key={role.id} className="px-2 py-0.5 rounded-full text-xs bg-slate-100 text-slate-700">
+                      {role.name}
+                    </span>
                   ))}
                 </div>
               )

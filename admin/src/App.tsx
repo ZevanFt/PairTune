@@ -1,90 +1,108 @@
-import { useMemo, useState } from 'react';
-import type { ReactNode } from 'react';
-import { ConfigProvider } from 'antd';
+import { Suspense, lazy, useEffect, useState } from 'react';
 
-import { Sidebar, NavKey } from './components/Sidebar';
-import { TopBar } from './components/TopBar';
-import { Dashboard } from './pages/Dashboard';
-import { Invites } from './pages/Invites';
-import { Users } from './pages/Users';
-import { Roles } from './pages/Roles';
-import { Tasks } from './pages/Tasks';
-import { Points } from './pages/Points';
-import { Store } from './pages/Store';
-import { Security } from './pages/Security';
-import { Settings } from './pages/Settings';
-import { Login } from './pages/Login';
+import { fetchBootstrapStatus } from './services/admin';
 import { t } from './i18n';
 
-const navMap: Record<NavKey, ReactNode> = {
-  dashboard: <Dashboard />,
-  invites: <Invites />,
-  users: <Users />,
-  tasks: <Tasks />,
-  points: <Points />,
-  store: <Store />,
-  security: <Security />,
-  roles: <Roles />,
-  settings: <Settings />
-};
+const AdminShell = lazy(() => import('./AdminShell').then((mod) => ({ default: mod.AdminShell })));
+const InitShell = lazy(() => import('./InitShell').then((mod) => ({ default: mod.InitShell })));
+const LoginShell = lazy(() => import('./LoginShell').then((mod) => ({ default: mod.LoginShell })));
 
 export function App() {
-  const [active, setActive] = useState<NavKey>('dashboard');
   const [authed, setAuthed] = useState(() => Boolean(localStorage.getItem('admin_token')));
+  const [initialized, setInitialized] = useState<boolean | null>(null);
+  const [statusError, setStatusError] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
 
-  const username = useMemo(() => {
+  const loadStatus = async () => {
+    if (checking) return;
+    setChecking(true);
+    setStatusError(false);
     try {
-      const raw = localStorage.getItem('admin_user');
-      if (!raw) return 'Admin';
-      const parsed = JSON.parse(raw) as { display_name?: string; account?: string };
-      return parsed.display_name || parsed.account || 'Admin';
+      const status = await fetchBootstrapStatus();
+      setInitialized(Boolean(status.initialized));
     } catch {
-      return 'Admin';
+      setStatusError(true);
+      setInitialized(null);
     }
-  }, [authed]);
+    setChecking(false);
+  };
+
+  useEffect(() => {
+    void loadStatus();
+  }, []);
+
+  useEffect(() => {
+    if (initialized !== null || statusError) return undefined;
+    setElapsed(0);
+    const timer = window.setInterval(() => {
+      setElapsed((prev) => prev + 1);
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [initialized, statusError]);
+
+  if (initialized === null) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 text-sm text-muted">
+        <div className="spinner" aria-label={t('init.loading')} />
+        <div>{t('init.loading')}</div>
+        <div className="text-xs text-muted">
+          {t('init.loadingTime')}
+          {elapsed}s
+        </div>
+        <button
+          type="button"
+          className="px-4 py-2 rounded-lg border border-border text-ink"
+          onClick={() => void loadStatus()}
+          disabled={checking}
+        >
+          {t('init.retry')}
+        </button>
+      </div>
+    );
+  }
+
+  if (statusError) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 text-sm text-muted">
+        <div>{t('init.loadFail')}</div>
+        <div className="text-xs text-muted">{t('init.backendHint')}</div>
+        <button
+          type="button"
+          className="px-4 py-2 rounded-lg border border-border text-ink"
+          onClick={() => void loadStatus()}
+        >
+          {t('init.retry')}
+        </button>
+      </div>
+    );
+  }
+
+  if (!initialized) {
+    return (
+      <Suspense fallback={null}>
+        <InitShell onSuccess={() => setInitialized(true)} />
+      </Suspense>
+    );
+  }
 
   if (!authed) {
     return (
-      <ConfigProvider
-        theme={{
-          token: {
-            colorPrimary: 'var(--color-primary)',
-            fontFamily: 'Space Grotesk, system-ui, sans-serif'
-          }
-        }}
-      >
-        <Login onSuccess={() => setAuthed(true)} />
-      </ConfigProvider>
+      <Suspense fallback={null}>
+        <LoginShell onSuccess={() => setAuthed(true)} />
+      </Suspense>
     );
   }
 
   return (
-    <ConfigProvider
-      theme={{
-        token: {
-          colorPrimary: 'var(--color-primary)',
-          fontFamily: 'Space Grotesk, system-ui, sans-serif',
-          borderRadius: 12
-        }
-      }}
-    >
-      <div className="min-h-screen grid grid-cols-[280px_1fr]">
-        <aside className="bg-[var(--sidebar-gradient)]">
-          <Sidebar active={active} onChange={setActive} />
-        </aside>
-        <main className="p-6 space-y-6">
-          <TopBar
-            username={username}
-            onLogout={() => {
-              localStorage.removeItem('admin_token');
-              localStorage.removeItem('admin_user');
-              setAuthed(false);
-            }}
-          />
-          <div className="text-sm text-muted">{t('app.title')}</div>
-          {navMap[active]}
-        </main>
-      </div>
-    </ConfigProvider>
+    <Suspense fallback={null}>
+      <AdminShell
+        onLogout={() => {
+          localStorage.removeItem('admin_token');
+          localStorage.removeItem('admin_user');
+          setAuthed(false);
+        }}
+      />
+    </Suspense>
   );
 }
