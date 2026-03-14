@@ -119,9 +119,9 @@ class _StorePageState extends State<StorePage> {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: AppTheme.panel.withOpacity(0.9),
+        color: AppTheme.panel.withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppTheme.primary.withOpacity(0.18)),
+        border: Border.all(color: AppTheme.primary.withValues(alpha: 0.18)),
         boxShadow: AppSurface.softShadow,
       ),
       child: Row(

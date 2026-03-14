@@ -69,7 +69,7 @@ class _AccountSecurityPageState extends State<AccountSecurityPage> {
       );
       return true;
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted) return false;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(formatErrorMessage(e))),
       );

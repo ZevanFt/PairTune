@@ -117,7 +117,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
             children: [
               _buildHero(ownerLabel),
               const SizedBox(height: AppSpace.sm + AppSpace.xxs),
-              _buildSectionHeader('最新动态', '按时间倒序查看提醒'),
+              _buildSectionHeader('最新动态', '按类型分组，未读优先'),
               AppSpace.h8,
               if (_error != null)
                 Padding(
@@ -132,10 +132,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                     child: ShimmerBlock(height: 92),
                   ),
                 )
-              else ...[
-                ..._list.map((notice) => _buildNoticeTile(notice)),
-                if (_list.isEmpty) _buildEmptyCard('暂无通知，去创建一个新任务吧'),
-              ],
+              else ..._buildGroupedList(),
             ],
           ),
         ),
@@ -239,18 +236,132 @@ class _NotificationsPageState extends State<NotificationsPage> {
     );
   }
 
-  Widget _buildEmptyCard(String text) {
+  List<Widget> _buildGroupedList() {
+    if (_list.isEmpty) {
+      return [_buildEmptyState()];
+    }
+    final unread = _list.where((item) => !item.isRead).toList();
+    final task = _list.where((item) => item.type == 'task').toList();
+    final exchange = _list.where((item) => item.type == 'exchange').toList();
+    final relation = _list.where((item) => item.type == 'relation').toList();
+    final system = _list.where((item) => item.type != 'task' && item.type != 'exchange' && item.type != 'relation').toList();
+
+    final sections = <Widget>[];
+    if (unread.isNotEmpty) {
+      sections.add(_buildGroupHeader('未读提醒', '${unread.length}'));
+      sections.addAll(unread.map((notice) => _buildNoticeTile(notice)));
+      sections.add(AppSpace.h12);
+    }
+    if (task.isNotEmpty) {
+      sections.add(_buildGroupHeader('任务', '${task.length}'));
+      sections.addAll(task.map((notice) => _buildNoticeTile(notice)));
+      sections.add(AppSpace.h12);
+    }
+    if (exchange.isNotEmpty) {
+      sections.add(_buildGroupHeader('兑换', '${exchange.length}'));
+      sections.addAll(exchange.map((notice) => _buildNoticeTile(notice)));
+      sections.add(AppSpace.h12);
+    }
+    if (relation.isNotEmpty) {
+      sections.add(_buildGroupHeader('关系', '${relation.length}'));
+      sections.addAll(relation.map((notice) => _buildNoticeTile(notice)));
+      sections.add(AppSpace.h12);
+    }
+    if (system.isNotEmpty) {
+      sections.add(_buildGroupHeader('系统', '${system.length}'));
+      sections.addAll(system.map((notice) => _buildNoticeTile(notice)));
+    }
+    return sections;
+  }
+
+  Widget _buildEmptyState() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
       decoration: AppSurface.subtleCard(),
-      child: Text(
-        text,
-        style: const TextStyle(
-          fontSize: 13,
-          color: AppTheme.textMuted,
-          fontWeight: FontWeight.w600,
-        ),
+      child: Column(
+        children: [
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              color: AppTheme.softBlue,
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: const Icon(Icons.notifications_off_rounded, color: AppTheme.primary, size: 32),
+          ),
+          AppSpace.h10,
+          const Text(
+            '暂无通知',
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            '创建任务或去商城兑换后会在这里提醒你',
+            style: AppText.bodyMuted,
+            textAlign: TextAlign.center,
+          ),
+          AppSpace.h12,
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('请在底部切换到任务页')),
+                    );
+                  },
+                  icon: const Icon(Icons.checklist_rounded),
+                  label: const Text('去任务'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('请在底部切换到商城页')),
+                    );
+                  },
+                  icon: const Icon(Icons.shopping_bag_rounded),
+                  label: const Text('去商城'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGroupHeader(String title, String count) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(
+              color: AppTheme.primary,
+              borderRadius: BorderRadius.circular(999),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(title, style: AppText.cardTitle),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              color: AppTheme.softBlue,
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              count,
+              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -287,7 +398,14 @@ class _NotificationsPageState extends State<NotificationsPage> {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(12),
-      decoration: AppSurface.card(),
+      decoration: BoxDecoration(
+        color: notice.isRead ? AppTheme.panel : AppTheme.softBlue.withValues(alpha: 0.35),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: notice.isRead ? AppTheme.border : AppTheme.primary.withValues(alpha: 0.25),
+        ),
+        boxShadow: AppSurface.softShadow,
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
