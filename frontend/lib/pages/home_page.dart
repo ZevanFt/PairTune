@@ -25,11 +25,15 @@ class HomePage extends StatefulWidget {
     required this.owner,
     required this.duoEnabled,
     required this.onOwnerChanged,
+    required this.isGuest,
+    required this.onExitGuest,
   });
 
   final String owner;
   final bool duoEnabled;
   final ValueChanged<String> onOwnerChanged;
+  final bool isGuest;
+  final VoidCallback onExitGuest;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -47,6 +51,7 @@ class _HomePageState extends State<HomePage> {
   BackendHealthStatus? _healthStatus;
   TaskFilterType _filter = TaskFilterType.active;
   TaskSortType _sort = TaskSortType.updatedDesc;
+  bool _hideGuestBanner = false;
 
   @override
   void initState() {
@@ -283,6 +288,7 @@ class _HomePageState extends State<HomePage> {
           child: ListView(
             padding: const EdgeInsets.all(AppSpace.lg),
             children: [
+              if (widget.isGuest && !_hideGuestBanner) _buildGuestBanner(),
               _buildHero(
                 activeCount: activeCount,
                 doneCount: doneCount,
@@ -372,6 +378,46 @@ class _HomePageState extends State<HomePage> {
                 fontWeight: FontWeight.w600,
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGuestBanner() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: AppTheme.panel.withOpacity(0.9),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppTheme.primary.withOpacity(0.18)),
+        boxShadow: AppSurface.softShadow,
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: AppTheme.softBlue,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.local_play_rounded, color: AppTheme.primary),
+          ),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text(
+              '体验模式：部分功能已隐藏',
+              style: TextStyle(color: AppTheme.ink, fontWeight: FontWeight.w700),
+            ),
+          ),
+          IconButton(
+            onPressed: () => setState(() => _hideGuestBanner = true),
+            icon: const Icon(Icons.close_rounded, size: 18),
+            color: AppTheme.textMuted,
+            tooltip: '关闭提示',
           ),
         ],
       ),

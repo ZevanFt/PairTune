@@ -106,4 +106,9 @@ class TaskDb {
     final db = await database;
     await db.delete('tasks', where: 'id = ?', whereArgs: [id]);
   }
+
+  Future<void> clearAll() async {
+    final db = await database;
+    await db.delete('tasks');
+  }
 }

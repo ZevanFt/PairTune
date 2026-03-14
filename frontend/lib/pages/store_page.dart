@@ -18,11 +18,15 @@ class StorePage extends StatefulWidget {
     required this.owner,
     required this.duoEnabled,
     required this.onOwnerChanged,
+    required this.isGuest,
+    required this.onExitGuest,
   });
 
   final String owner;
   final bool duoEnabled;
   final ValueChanged<String> onOwnerChanged;
+  final bool isGuest;
+  final VoidCallback onExitGuest;
 
   @override
   State<StorePage> createState() => _StorePageState();
@@ -35,6 +39,7 @@ class _StorePageState extends State<StorePage> {
   bool _refreshing = false;
   String? _error;
   BackendHealthStatus? _healthStatus;
+  bool _hideGuestBanner = false;
 
   int _points = 0;
   List<ProductItem> _market = [];
@@ -108,7 +113,55 @@ class _StorePageState extends State<StorePage> {
     return Icon(Icons.circle, size: 11, color: color);
   }
 
+  Widget _buildGuestBanner() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: AppTheme.panel.withOpacity(0.9),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppTheme.primary.withOpacity(0.18)),
+        boxShadow: AppSurface.softShadow,
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: AppTheme.softBlue,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.local_play_rounded, color: AppTheme.primary),
+          ),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text(
+              '体验模式：仅可浏览',
+              style: TextStyle(color: AppTheme.ink, fontWeight: FontWeight.w700),
+            ),
+          ),
+          IconButton(
+            onPressed: () => setState(() => _hideGuestBanner = true),
+            icon: const Icon(Icons.close_rounded, size: 18),
+            color: AppTheme.textMuted,
+            tooltip: '关闭提示',
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _exchange(ProductItem item) async {
+    if (widget.isGuest) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('体验模式不可兑换，请登录后操作')),
+        );
+      }
+      return;
+    }
     try {
       await _store.exchange(buyer: widget.owner, productId: item.id);
       if (mounted) {
@@ -289,26 +342,28 @@ class _StorePageState extends State<StorePage> {
       appBar: AppBar(
         title: _buildTitleWithHealth('积分商城'),
         actions: [
-          TextButton.icon(
-            onPressed: _showCreateProductPage,
-            icon: const Icon(Icons.add_rounded, size: 18),
-            label: const Text('发布'),
-          ),
-          IconButton(
-            tooltip: '我发布的商品',
-            onPressed: _openMyProductsPage,
-            icon: const Icon(Icons.inventory_2_outlined),
-          ),
-          IconButton(
-            tooltip: '兑换记录',
-            onPressed: _openOwnedRecordsPage,
-            icon: const Icon(Icons.history_rounded),
-          ),
-          IconButton(
-            tooltip: '导出快照',
-            onPressed: _exportSnapshot,
-            icon: const Icon(Icons.download_outlined),
-          ),
+          if (!widget.isGuest) ...[
+            TextButton.icon(
+              onPressed: _showCreateProductPage,
+              icon: const Icon(Icons.add_rounded, size: 18),
+              label: const Text('发布'),
+            ),
+            IconButton(
+              tooltip: '我发布的商品',
+              onPressed: _openMyProductsPage,
+              icon: const Icon(Icons.inventory_2_outlined),
+            ),
+            IconButton(
+              tooltip: '兑换记录',
+              onPressed: _openOwnedRecordsPage,
+              icon: const Icon(Icons.history_rounded),
+            ),
+            IconButton(
+              tooltip: '导出快照',
+              onPressed: _exportSnapshot,
+              icon: const Icon(Icons.download_outlined),
+            ),
+          ],
           if (widget.duoEnabled)
             Padding(
               padding: const EdgeInsets.only(right: 12),
@@ -339,6 +394,7 @@ class _StorePageState extends State<StorePage> {
           child: ListView(
             padding: const EdgeInsets.all(AppSpace.lg),
             children: [
+              if (widget.isGuest && !_hideGuestBanner) _buildGuestBanner(),
               if (_refreshing)
                 const Padding(
                   padding: EdgeInsets.only(bottom: 12),

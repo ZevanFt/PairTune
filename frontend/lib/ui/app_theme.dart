@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class AppTheme {
   static const Color primary = Color(0xFF253B6E);
@@ -73,6 +74,7 @@ class AppTheme {
         foregroundColor: ink,
         elevation: 0,
         scrolledUnderElevation: 0,
+        systemOverlayStyle: SystemUiOverlayStyle.dark,
         titleTextStyle: TextStyle(
           color: ink,
           fontSize: 20,

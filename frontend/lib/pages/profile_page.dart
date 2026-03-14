@@ -1,16 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 
+import '../i18n/app_strings.dart';
 import '../services/account_api_service.dart';
 import '../services/health_api_service.dart';
 import '../ui/app_surface.dart';
 import '../ui/app_space.dart';
 import '../ui/app_text.dart';
 import '../ui/app_theme.dart';
+import '../ui/profile_avatar.dart';
 import '../utils/error_display.dart';
 import '../widgets/hero_panel.dart';
+import 'about_page.dart';
+import 'account_security_page.dart';
 import 'debug_page.dart';
-import 'edit_display_name_page.dart';
-import 'settings_detail_page.dart';
+import 'edit_profile_page.dart';
+import 'help_feedback_page.dart';
+import 'privacy_data_page.dart';
+import 'relationship_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({
@@ -19,12 +26,16 @@ class ProfilePage extends StatefulWidget {
     required this.duoEnabled,
     required this.onModeChanged,
     required this.onLogout,
+    this.isGuest = false,
+    required this.onExitGuest,
   });
 
   final String owner;
   final bool duoEnabled;
   final ValueChanged<bool> onModeChanged;
   final Future<void> Function() onLogout;
+  final bool isGuest;
+  final VoidCallback onExitGuest;
 
   @override
   State<ProfilePage> createState() => _ProfilePageState();
@@ -38,6 +49,11 @@ class _ProfilePageState extends State<ProfilePage> {
   BackendHealthStatus? _healthStatus;
   UserProfile? _profile;
   AppSettings? _settings;
+  int _debugTapCount = 0;
+  int _versionTapCount = 0;
+  DateTime? _debugTapStart;
+  bool _debugUnlocked = false;
+  bool get _showDebugHint => !kReleaseMode;
 
   @override
   void initState() {
@@ -83,41 +99,50 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  Future<void> _editDisplayName() async {
+  void _registerDebugTap() {
+    final now = DateTime.now();
+    if (_debugTapStart == null || now.difference(_debugTapStart!) > const Duration(seconds: 4)) {
+      _debugTapStart = now;
+      _debugTapCount = 0;
+      _versionTapCount = 0;
+    }
+    _debugTapCount += 1;
+    if (_debugTapCount >= 5) {
+      _versionTapCount = 0;
+    }
+  }
+
+  void _registerVersionTap() {
+    if (_debugTapCount < 5) return;
+    final now = DateTime.now();
+    if (_debugTapStart == null || now.difference(_debugTapStart!) > const Duration(seconds: 6)) {
+      _debugTapStart = null;
+      _debugTapCount = 0;
+      _versionTapCount = 0;
+      return;
+    }
+      _versionTapCount += 1;
+    if (_versionTapCount >= 3) {
+      setState(() => _debugUnlocked = true);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(AppStrings.profileDebugUnlocked)),
+      );
+    }
+  }
+
+  Future<void> _editProfile() async {
     final profile = _profile;
     if (profile == null) return;
 
-    final nextName = await Navigator.push<String>(
+    final updated = await Navigator.push<UserProfile>(
       context,
       MaterialPageRoute(
-        builder: (context) => EditDisplayNamePage(
-          initialName: profile.displayName,
-        ),
+        builder: (context) => EditProfilePage(profile: profile),
       ),
     );
 
-    if (nextName == null || nextName.trim().isEmpty) return;
-
-    try {
-      final next = await _accountApi.updateProfile(
-        owner: widget.owner,
-        displayName: nextName.trim(),
-        bio: profile.bio,
-        avatar: profile.avatar,
-        relationshipLabel: profile.relationshipLabel,
-      );
-      setState(() => _profile = next);
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('昵称已更新')));
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('更新失败: ${formatErrorMessage(e)}')),
-        );
-      }
+    if (updated != null) {
+      setState(() => _profile = updated);
     }
   }
 
@@ -132,7 +157,11 @@ class _ProfilePageState extends State<ProfilePage> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('模式同步失败: ${formatErrorMessage(e)}')),
+        SnackBar(
+          content: Text(
+            AppStrings.profileModeSyncFailDetail(formatErrorMessage(e)),
+          ),
+        ),
       );
     }
   }
@@ -147,7 +176,11 @@ class _ProfilePageState extends State<ProfilePage> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('设置失败: ${formatErrorMessage(e)}')),
+          SnackBar(
+            content: Text(
+              AppStrings.profileSettingFailDetail(formatErrorMessage(e)),
+            ),
+          ),
         );
       }
     }
@@ -159,7 +192,7 @@ class _ProfilePageState extends State<ProfilePage> {
     final settings = _settings;
 
     return Scaffold(
-      appBar: AppBar(title: _buildTitleWithHealth('个人中心')),
+      appBar: AppBar(title: _buildTitleWithHealth(AppStrings.profileTitle)),
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -178,166 +211,43 @@ class _ProfilePageState extends State<ProfilePage> {
                   padding: const EdgeInsets.only(bottom: 12),
                   child: _buildErrorPanel(_error!),
                 ),
-              _buildHeaderCard(profile),
+              GestureDetector(
+                onTap: _registerDebugTap,
+                child: _buildHeaderCard(profile),
+              ),
               AppSpace.h16,
-              _buildSectionTitle('资料与关系', '编辑资料并维护协作身份'),
-              AppSpace.h8,
-              _buildItem(
-                Icons.edit_rounded,
-                '编辑资料',
-                profile?.displayName ?? '加载中...',
-                onTap: _loading ? null : _editDisplayName,
-              ),
-              _buildItem(
-                Icons.people_alt_rounded,
-                '关系管理',
-                '对象/闺蜜/室友/搭子',
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const SettingsDetailPage(
-                      title: '关系管理',
-                      subtitle: '维护你和搭档的协作关系标签与默认展示信息',
-                      items: ['关系标签管理', '搭档邀请与解绑', '协作权限设置'],
-                    ),
-                  ),
+              if (widget.isGuest)
+                _buildGuestLoginCard()
+              else ...[
+                _buildSectionTitle(
+                  AppStrings.profileSectionInfoTitle,
+                  AppStrings.profileSectionInfoSubtitle,
                 ),
-              ),
-              _buildSwitchCard(
-                value: widget.duoEnabled,
-                title: '双人协作模式',
-                subtitle: widget.duoEnabled ? '已开启：可切换我/搭档视角' : '已关闭：当前为单人模式',
-                onChanged: _changeDuoMode,
-              ),
-              AppSpace.h12,
-              _buildSectionTitle('账号与通知', '管理账号安全并调整消息提醒'),
-              AppSpace.h8,
-              _buildItem(
-                Icons.security_rounded,
-                '账号安全',
-                '手机号/邮箱/登录方式',
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const SettingsDetailPage(
-                      title: '账号安全',
-                      subtitle: '登录方式与账号安全能力会逐步接入（手机号/微信）',
-                      items: ['绑定手机号（待接入）', '微信登录（待接入）', '设备管理与安全日志'],
-                    ),
-                  ),
+                AppSpace.h8,
+                _buildInfoCard(profile),
+                AppSpace.h12,
+                _buildSectionTitle(
+                  AppStrings.profileSectionAccountTitle,
+                  AppStrings.profileSectionAccountSubtitle,
                 ),
-              ),
-              _buildSwitchCard(
-                value: settings?.notificationsEnabled ?? true,
-                title: '通知开关',
-                subtitle: '任务提醒与商城提醒',
-                onChanged: _changeNotificationMode,
-              ),
-              AppSpace.h12,
-              _buildSectionTitle('支持与隐私', '反馈问题并管理隐私数据'),
-              AppSpace.h8,
-              _buildItem(
-                Icons.feedback_rounded,
-                '帮助与反馈',
-                '问题反馈与产品建议',
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const SettingsDetailPage(
-                      title: '帮助与反馈',
-                      subtitle: '集中查看常见问题，并把建议直接反馈给我们',
-                      items: ['常见问题 FAQ', '问题反馈', '功能建议'],
-                    ),
-                  ),
+                AppSpace.h8,
+                _buildAccountCard(settings),
+                AppSpace.h12,
+                _buildSectionTitle(
+                  AppStrings.profileSectionSupportTitle,
+                  AppStrings.profileSectionSupportSubtitle,
                 ),
-              ),
-              _buildItem(
-                Icons.bug_report_outlined,
-                '调试页面',
-                '查看 API 日志并运行网络诊断',
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const DebugPage()),
-                  );
-                },
-              ),
-              _buildItem(
-                Icons.privacy_tip_rounded,
-                '隐私与数据',
-                '导出数据、账号注销',
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const SettingsDetailPage(
-                      title: '隐私与数据',
-                      subtitle: '管理个人数据、导出记录与账号生命周期',
-                      items: ['数据导出', '隐私政策', '账号注销流程'],
-                    ),
-                  ),
-                ),
-              ),
-              _buildItem(
-                Icons.logout_rounded,
-                '退出登录',
-                '退出当前账号并回到登录页',
-                onTap: () async {
-                  final confirmed = await showModalBottomSheet<bool>(
-                    context: context,
-                    backgroundColor: AppTheme.panel,
-                    shape: const RoundedRectangleBorder(
-                      borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-                    ),
-                    builder: (context) => Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-                      child: SafeArea(
-                        top: false,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              '退出登录',
-                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-                            ),
-                            const SizedBox(height: 4),
-                            const Text(
-                              '退出后需要重新登录才能继续使用',
-                              style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
-                            ),
-                            const SizedBox(height: 14),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: OutlinedButton(
-                                    onPressed: () => Navigator.pop(context, false),
-                                    child: const Text('取消'),
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: FilledButton(
-                                    onPressed: () => Navigator.pop(context, true),
-                                    child: const Text('确认退出'),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  );
-                  if (confirmed == true) {
-                    await widget.onLogout();
-                  }
-                },
-              ),
+                AppSpace.h8,
+                _buildSupportCard(),
+              ],
               const SizedBox(height: AppSpace.lg + 2),
-              Text(
-                '合拍 PairTune · v1.0.0',
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: AppTheme.neutralStrong, fontSize: 12),
+              GestureDetector(
+                onTap: _registerVersionTap,
+                child: const Text(
+                  AppStrings.profileVersion,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: AppTheme.neutralStrong, fontSize: 12),
+                ),
               ),
             ],
           ),
@@ -367,29 +277,36 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildHeaderCard(UserProfile? profile) {
+    final preset = resolveAvatarPreset(profile?.avatar);
     return HeroPanel(
       tag: 'PROFILE',
-      title: profile?.displayName ?? '合拍用户',
-      subtitle: 'PairTune ID: ${profile?.owner ?? '...'}',
-      trailing: const CircleAvatar(
+      title: profile?.displayName ?? AppStrings.profileDefaultName,
+      subtitle: AppStrings.profileOwnerId(
+        profile?.owner ?? AppStrings.profileOwnerPlaceholder,
+      ),
+      trailing: CircleAvatar(
         radius: 18,
-        backgroundColor: Color(0x33FFFFFF),
-        child: Icon(Icons.person_rounded, color: Colors.white, size: 20),
+        backgroundColor: preset.bgColor.withValues(alpha: 0.5),
+        child: Icon(preset.icon, color: preset.fgColor, size: 20),
       ),
       metrics: [
         HeroMetricData(
           icon: widget.duoEnabled
               ? Icons.people_alt_rounded
               : Icons.person_outline_rounded,
-          label: '当前模式',
-          value: widget.duoEnabled ? '双人' : '单人',
+          label: AppStrings.profileModeLabel,
+          value: widget.duoEnabled
+              ? AppStrings.profileModeDuo
+              : AppStrings.profileModeSolo,
         ),
         HeroMetricData(
           icon: widget.owner == 'me'
               ? Icons.person_pin_circle_rounded
               : Icons.handshake_rounded,
-          label: '当前身份',
-          value: widget.owner == 'me' ? '我' : '搭档',
+          label: AppStrings.profileOwnerLabel,
+          value: widget.owner == 'me'
+              ? AppStrings.profileOwnerMe
+              : AppStrings.profileOwnerPartner,
         ),
       ],
     );
@@ -410,93 +327,290 @@ class _ProfilePageState extends State<ProfilePage> {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              title,
-              style: AppText.sectionTitle,
-            ),
-            Text(
-              subtitle,
-              style: AppText.sectionSubtitle,
-            ),
+            Text(title, style: AppText.sectionTitle),
+            Text(subtitle, style: AppText.sectionSubtitle),
           ],
         ),
       ],
     );
   }
 
-  Widget _buildSwitchCard({
-    required bool value,
-    required String title,
-    required String subtitle,
-    required ValueChanged<bool> onChanged,
-  }) {
+  Widget _buildInfoCard(UserProfile? profile) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
-      decoration: AppSurface.card(),
-      child: Row(
+      decoration: AppSurface.card(alpha: 0.98),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: AppTheme.softBlue,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(
-              value ? Icons.toggle_on_rounded : Icons.toggle_off_rounded,
-              color: AppTheme.primary,
-            ),
+          _buildInlineItem(
+            Icons.edit_rounded,
+            AppStrings.profileEdit,
+            profile?.displayName ?? AppStrings.profileLoading,
+            onTap: _loading ? null : _editProfile,
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: AppText.cardTitle.copyWith(fontSize: 15),
+          _buildDivider(),
+          _buildInlineItem(
+            Icons.people_alt_rounded,
+            AppStrings.profileRelationship,
+            AppStrings.profileRelationshipSubtitle,
+            onTap: () async {
+              final current = _profile;
+              if (current == null) return;
+              final updated = await Navigator.push<UserProfile>(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => RelationshipPage(profile: current),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  style: AppText.bodyMuted,
-                ),
-              ],
-            ),
+              );
+              if (updated != null && mounted) {
+                setState(() => _profile = updated);
+              }
+            },
           ),
-          Switch(
-            value: value,
-            onChanged: onChanged,
+          _buildDivider(),
+          _buildInlineSwitch(
+            value: widget.duoEnabled,
+            title: AppStrings.profileDuoMode,
+            subtitle: widget.duoEnabled
+                ? AppStrings.profileDuoModeOn
+                : AppStrings.profileDuoModeOff,
+            onChanged: _changeDuoMode,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildItem(
+  Widget _buildAccountCard(AppSettings? settings) {
+    return Container(
+      decoration: AppSurface.card(alpha: 0.98),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildInlineItem(
+            Icons.security_rounded,
+            AppStrings.profileAccountSecurity,
+            AppStrings.profileAccountSecuritySubtitle,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const AccountSecurityPage()),
+            ),
+          ),
+          _buildDivider(),
+          _buildInlineSwitch(
+            value: settings?.notificationsEnabled ?? true,
+            title: AppStrings.profileNotification,
+            subtitle: AppStrings.profileNotificationSubtitle,
+            onChanged: _changeNotificationMode,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSupportCard() {
+    return Container(
+      decoration: AppSurface.card(alpha: 0.98),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildInlineItem(
+            Icons.feedback_rounded,
+            AppStrings.profileHelp,
+            AppStrings.profileHelpSubtitle,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const HelpFeedbackPage()),
+            ),
+          ),
+          if (_showDebugHint && !_debugUnlocked) ...[
+            _buildDivider(),
+            _buildInlineHint(AppStrings.profileDebugHint),
+          ],
+          if (_debugUnlocked) ...[
+            _buildDivider(),
+            _buildInlineItem(
+              Icons.bug_report_outlined,
+              AppStrings.profileDebugTitle,
+              AppStrings.profileDebugSubtitle,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const DebugPage()),
+                );
+              },
+            ),
+          ],
+          _buildDivider(),
+          _buildInlineItem(
+            Icons.privacy_tip_rounded,
+            AppStrings.profilePrivacy,
+            AppStrings.profilePrivacySubtitle,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const PrivacyDataPage()),
+            ),
+          ),
+          _buildDivider(),
+          _buildInlineItem(
+            Icons.info_outline_rounded,
+            AppStrings.profileAbout,
+            AppStrings.profileAboutSubtitle,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const AboutPage()),
+            ),
+          ),
+          _buildDivider(),
+          _buildInlineItem(
+            Icons.logout_rounded,
+            AppStrings.profileLogout,
+            AppStrings.profileLogoutSubtitle,
+            onTap: () async {
+              final confirmed = await showModalBottomSheet<bool>(
+                context: context,
+                backgroundColor: AppTheme.panel,
+                shape: const RoundedRectangleBorder(
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+                ),
+                builder: (context) => Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                  child: SafeArea(
+                    top: false,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          AppStrings.profileLogoutTitle,
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                        ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          AppStrings.profileLogoutHint,
+                          style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
+                        ),
+                        const SizedBox(height: 14),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () => Navigator.pop(context, false),
+                                child: const Text(AppStrings.profileLogoutCancel),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: FilledButton(
+                                onPressed: () => Navigator.pop(context, true),
+                                child: const Text(AppStrings.profileLogoutConfirm),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+              if (confirmed == true) {
+                await widget.onLogout();
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInlineItem(
     IconData icon,
     String title,
     String subtitle, {
     VoidCallback? onTap,
   }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      decoration: AppSurface.card(),
-      child: ListTile(
-        leading: Container(
-          width: 38,
-          height: 38,
-          decoration: BoxDecoration(
-            color: AppTheme.softBlue,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Icon(icon, color: AppTheme.primary),
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+      leading: Container(
+        width: 38,
+        height: 38,
+        decoration: BoxDecoration(
+          color: AppTheme.softBlue,
+          borderRadius: BorderRadius.circular(10),
         ),
-        title: Text(title, style: AppText.cardTitle),
-        subtitle: Text(subtitle, style: AppText.bodyMuted),
-        trailing: const Icon(Icons.chevron_right_rounded),
-        onTap: onTap,
+        child: Icon(icon, color: AppTheme.primary),
+      ),
+      title: Text(title, style: AppText.cardTitle),
+      subtitle: Text(subtitle, style: AppText.bodyMuted),
+      trailing: const Icon(Icons.chevron_right_rounded),
+      onTap: onTap,
+    );
+  }
+
+  Widget _buildInlineSwitch({
+    required bool value,
+    required String title,
+    required String subtitle,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+      leading: Container(
+        width: 38,
+        height: 38,
+        decoration: BoxDecoration(
+          color: AppTheme.softBlue,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(
+          value ? Icons.toggle_on_rounded : Icons.toggle_off_rounded,
+          color: AppTheme.primary,
+        ),
+      ),
+      title: Text(title, style: AppText.cardTitle),
+      subtitle: Text(subtitle, style: AppText.bodyMuted),
+      trailing: Switch(
+        value: value,
+        onChanged: onChanged,
+      ),
+    );
+  }
+
+  Widget _buildInlineHint(String text) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+      child: Text(text, style: AppText.bodyMuted),
+    );
+  }
+
+  Widget _buildDivider() {
+    return const Divider(height: 1, thickness: 1, color: AppTheme.border);
+  }
+
+  Widget _buildGuestLoginCard() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: AppSurface.card(alpha: 0.98),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            AppStrings.profileGuestTitle,
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            AppStrings.profileGuestSubtitle,
+            style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              onPressed: widget.onExitGuest,
+              child: const Text(AppStrings.profileGuestAction),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -515,7 +629,7 @@ class _ProfilePageState extends State<ProfilePage> {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              '加载失败：$text',
+              AppStrings.profileErrorLoadingDetail(text),
               style: const TextStyle(
                 color: AppTheme.danger,
                 fontWeight: FontWeight.w600,
