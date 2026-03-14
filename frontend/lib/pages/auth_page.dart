@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../i18n/app_strings.dart';
 import '../services/auth_api_service.dart';
 import '../ui/app_space.dart';
 import '../ui/app_surface.dart';
@@ -8,21 +9,19 @@ import '../ui/app_theme.dart';
 import '../utils/error_display.dart';
 
 class AuthPage extends StatefulWidget {
-  const AuthPage({super.key, required this.onAuthenticated});
+  const AuthPage({super.key, required this.onAuthenticated, required this.onGuest});
 
   final ValueChanged<String> onAuthenticated;
+  final VoidCallback onGuest;
 
   @override
   State<AuthPage> createState() => _AuthPageState();
 }
 
-class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin {
-  late final TabController _tab = TabController(length: 2, vsync: this);
+class _AuthPageState extends State<AuthPage> {
   final _authApi = AuthApiService();
   final _account = TextEditingController();
   final _password = TextEditingController();
-  final _inviteCode = TextEditingController();
-  final _displayName = TextEditingController(text: '新用户');
   bool _loading = false;
   String? _error;
 
@@ -30,9 +29,6 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
   void dispose() {
     _account.dispose();
     _password.dispose();
-    _inviteCode.dispose();
-    _displayName.dispose();
-    _tab.dispose();
     super.dispose();
   }
 
@@ -56,28 +52,6 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
     }
   }
 
-  Future<void> _registerByAccount() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    try {
-      final session = await _authApi.registerWithAccount(
-        account: _account.text.trim(),
-        password: _password.text,
-        displayName: _displayName.text.trim(),
-        inviteCode: _inviteCode.text.trim(),
-      );
-      if (!mounted) return;
-      widget.onAuthenticated(session.token);
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _error = formatErrorMessage(e));
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -90,93 +64,70 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
           ),
         ),
         child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpace.lg),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: AppTheme.softBlue,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: const Text(
-                    'PAIRTUNE AUTH',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                      color: AppTheme.primary,
-                      letterSpacing: 1.0,
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(AppSpace.lg),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 520),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      AppStrings.authLoginTitle,
+                      style: TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.w900,
+                        color: AppTheme.primary,
+                      ),
                     ),
-                  ),
-                ),
-                AppSpace.h12,
-                const Text(
-                  '登录 PairTune',
-                  style: TextStyle(
-                    fontSize: 30,
-                    fontWeight: FontWeight.w900,
-                    color: AppTheme.primary,
-                  ),
-                ),
-                AppSpace.h8,
-                const Text(
-                  '先登录，再开始你的单人或双人协作。',
-                  style: AppText.sectionSubtitle,
-                ),
-                AppSpace.h16,
-                TabBar(
-                  controller: _tab,
-                  tabs: const [Tab(text: '登录'), Tab(text: '注册')],
-                ),
-                AppSpace.h12,
-                if (_error != null) ...[
-                  _buildErrorCard(_error!),
-                  AppSpace.h8,
-                ],
-                SizedBox(
-                  height: 420,
-                  child: TabBarView(
-                    controller: _tab,
-                    children: [
-                      _AuthPanel(
-                        title: '登录',
-                        subtitle: '使用账号与密码登录',
-                        primaryLabel: '账号登录',
-                        loading: _loading,
-                        accountController: _account,
-                        passwordController: _password,
-                        displayNameController: _displayName,
-                        inviteCodeController: _inviteCode,
-                        onPrimary: _loginByAccount,
-                        showInvite: false,
-                      ),
-                      _AuthPanel(
-                        title: '注册',
-                        subtitle: '注册需要邀请码',
-                        primaryLabel: '创建账号',
-                        loading: _loading,
-                        accountController: _account,
-                        passwordController: _password,
-                        displayNameController: _displayName,
-                        inviteCodeController: _inviteCode,
-                        onPrimary: _registerByAccount,
-                        showInvite: true,
-                      ),
+                    AppSpace.h8,
+                    const Text(AppStrings.authLoginSubtitle, style: AppText.sectionSubtitle),
+                    AppSpace.h12,
+                    if (_error != null) ...[
+                      _buildErrorCard(_error!),
+                      AppSpace.h8,
                     ],
-                  ),
+                    _AuthPanel(
+                      title: AppStrings.authAccountPanelTitle,
+                      subtitle: AppStrings.authAccountPanelSubtitle,
+                      primaryLabel: AppStrings.authLoginButton,
+                      loading: _loading,
+                      accountController: _account,
+                      passwordController: _password,
+                      onPrimary: _loginByAccount,
+                    ),
+                    AppSpace.h8,
+                    Row(
+                      children: [
+                        Text(
+                          AppStrings.authNoAccount,
+                          style: AppText.sectionSubtitle,
+                        ),
+                        const SizedBox(width: 6),
+                        TextButton(
+                          onPressed: _loading
+                              ? null
+                              : () => Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => RegisterPage(onGuest: widget.onGuest),
+                                    ),
+                                  ),
+                          child: const Text(AppStrings.authGoRegister),
+                        ),
+                      ],
+                    ),
+                    AppSpace.h8,
+                    Center(
+                      child: TextButton(
+                        onPressed: _loading ? null : widget.onGuest,
+                        child: const Text(AppStrings.authGuest),
+                      ),
+                    ),
+                  ],
                 ),
-                AppSpace.h12,
-                Center(
-                  child: TextButton(
-                    onPressed: _loading ? null : () => widget.onAuthenticated('dev_mode_token'),
-                    child: const Text('先体验应用（游客模式）'),
-                  ),
-                ),
-                const Spacer(),
-              ],
+              ),
             ),
           ),
         ),
@@ -194,12 +145,13 @@ class _AuthPageState extends State<AuthPage> with SingleTickerProviderStateMixin
         borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
-        '认证失败：$text',
+        '${AppStrings.authFailPrefix}$text',
         style: const TextStyle(color: AppTheme.danger, fontSize: 12, fontWeight: FontWeight.w600),
       ),
     );
   }
 }
+
 
 class _AuthPanel extends StatelessWidget {
   const _AuthPanel({
@@ -209,10 +161,7 @@ class _AuthPanel extends StatelessWidget {
     required this.loading,
     required this.accountController,
     required this.passwordController,
-    required this.displayNameController,
-    required this.inviteCodeController,
     required this.onPrimary,
-    required this.showInvite,
   });
 
   final String title;
@@ -221,16 +170,13 @@ class _AuthPanel extends StatelessWidget {
   final bool loading;
   final TextEditingController accountController;
   final TextEditingController passwordController;
-  final TextEditingController displayNameController;
-  final TextEditingController inviteCodeController;
   final VoidCallback onPrimary;
-  final bool showInvite;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(AppSpace.md),
-      decoration: AppSurface.card(alpha: 0.95, shadow: false),
+      decoration: AppSurface.card(alpha: 0.98, shadow: true),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -239,21 +185,12 @@ class _AuthPanel extends StatelessWidget {
           Text(subtitle, style: AppText.sectionSubtitle),
           AppSpace.h12,
           TextField(
-            controller: displayNameController,
-            enabled: !loading,
-            decoration: const InputDecoration(
-              labelText: '昵称',
-              hintText: '输入昵称（可选）',
-            ),
-          ),
-          AppSpace.h8,
-          TextField(
             controller: accountController,
             enabled: !loading,
             keyboardType: TextInputType.text,
             decoration: const InputDecoration(
-              labelText: '账号',
-              hintText: '4-20位字母/数字/下划线',
+              labelText: AppStrings.authAccountLabel,
+              hintText: AppStrings.authAccountHint,
             ),
           ),
           AppSpace.h8,
@@ -262,21 +199,10 @@ class _AuthPanel extends StatelessWidget {
             enabled: !loading,
             obscureText: true,
             decoration: const InputDecoration(
-              labelText: '密码',
-              hintText: '至少6位',
+              labelText: AppStrings.authPasswordLabel,
+              hintText: AppStrings.authPasswordHint,
             ),
           ),
-          if (showInvite) ...[
-            AppSpace.h8,
-            TextField(
-              controller: inviteCodeController,
-              enabled: !loading,
-              decoration: const InputDecoration(
-                labelText: '邀请码',
-                hintText: '请输入管理员提供的邀请码',
-              ),
-            ),
-          ],
           AppSpace.h12,
           SizedBox(
             width: double.infinity,
@@ -287,6 +213,176 @@ class _AuthPanel extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class RegisterPage extends StatefulWidget {
+  const RegisterPage({super.key, this.onGuest});
+
+  final VoidCallback? onGuest;
+
+  @override
+  State<RegisterPage> createState() => _RegisterPageState();
+}
+
+class _RegisterPageState extends State<RegisterPage> {
+  final _authApi = AuthApiService();
+  final _account = TextEditingController();
+  final _password = TextEditingController();
+  final _inviteCode = TextEditingController();
+  final _displayName = TextEditingController(text: AppStrings.registerDefaultName);
+  bool _loading = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _account.dispose();
+    _password.dispose();
+    _inviteCode.dispose();
+    _displayName.dispose();
+    super.dispose();
+  }
+
+  Future<void> _register() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      await _authApi.registerWithAccount(
+        account: _account.text.trim(),
+        password: _password.text,
+        displayName: _displayName.text.trim(),
+        inviteCode: _inviteCode.text.trim(),
+      );
+      if (!mounted) return;
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(AppStrings.registerSuccess)),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = formatErrorMessage(e));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text(AppStrings.registerTitle)),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [AppTheme.pageBgTop, AppTheme.pageBgMid, AppTheme.pageBgBottom],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(AppSpace.lg),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 520),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (_error != null) ...[
+                      _buildRegisterErrorCard(_error!),
+                      AppSpace.h8,
+                    ],
+                    Container(
+                      padding: const EdgeInsets.all(AppSpace.md),
+                      decoration: AppSurface.card(alpha: 0.98, shadow: true),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(AppStrings.registerPanelTitle, style: AppText.sectionTitle),
+                          AppSpace.h4,
+                          const Text(AppStrings.registerPanelSubtitle, style: AppText.sectionSubtitle),
+                          AppSpace.h12,
+                          TextField(
+                            controller: _displayName,
+                            enabled: !_loading,
+                            decoration: const InputDecoration(
+                              labelText: AppStrings.registerDisplayNameLabel,
+                              hintText: AppStrings.registerDisplayNameHint,
+                            ),
+                          ),
+                          AppSpace.h8,
+                          TextField(
+                            controller: _account,
+                            enabled: !_loading,
+                            keyboardType: TextInputType.text,
+                            decoration: const InputDecoration(
+                              labelText: AppStrings.registerAccountLabel,
+                              hintText: AppStrings.authAccountHint,
+                            ),
+                          ),
+                          AppSpace.h8,
+                          TextField(
+                            controller: _password,
+                            enabled: !_loading,
+                            obscureText: true,
+                            decoration: const InputDecoration(
+                              labelText: AppStrings.registerPasswordLabel,
+                              hintText: AppStrings.authPasswordHint,
+                            ),
+                          ),
+                          AppSpace.h8,
+                          TextField(
+                            controller: _inviteCode,
+                            enabled: !_loading,
+                            decoration: const InputDecoration(
+                              labelText: AppStrings.registerInviteLabel,
+                              hintText: AppStrings.registerInviteHint,
+                            ),
+                          ),
+                          AppSpace.h12,
+                          SizedBox(
+                            width: double.infinity,
+                            child: FilledButton.icon(
+                              onPressed: _loading ? null : _register,
+                              icon: const Icon(Icons.person_add_alt_1_rounded),
+                              label: const Text(AppStrings.registerSubmit),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    AppSpace.h12,
+                    Center(
+                      child: TextButton(
+                        onPressed: _loading ? null : widget.onGuest,
+                        child: const Text(AppStrings.authGuest),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRegisterErrorCard(String text) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppTheme.errorBg,
+        border: Border.all(color: AppTheme.errorBorder),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        '${AppStrings.registerFailPrefix}$text',
+        style: const TextStyle(color: AppTheme.danger, fontSize: 12, fontWeight: FontWeight.w600),
       ),
     );
   }

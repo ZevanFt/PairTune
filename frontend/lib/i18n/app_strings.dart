@@ -1,5 +1,9 @@
 class AppStrings {
   static const appName = '合拍 PairTune';
+  static const appTag = 'PAIRTUNE';
+  static const appSubtitle = '协作型任务与积分应用';
+  static const appTeamName = 'PairTune Team';
+  static const appVersion = 'v1.0.0';
   static const profileTitle = '个人中心';
   static const profileSectionInfoTitle = '资料与关系';
   static const profileSectionInfoSubtitle = '编辑资料并维护协作身份';
@@ -122,6 +126,83 @@ class AppStrings {
   static const accountSecurityTipShort = '长度至少 8 位';
   static const accountSecurityTipMix = '包含大小写与数字';
   static const accountSecurityTipSymbol = '加入特殊字符更安全';
+
+  static const introFeatureTitle1 = '要事第一';
+  static const introFeatureSubtitle1 = '四象限聚焦重要任务';
+  static const introFeatureTitle2 = '积分激励';
+  static const introFeatureSubtitle2 = '完成任务获得奖励';
+  static const introFeatureTitle3 = '关系协作';
+  static const introFeatureSubtitle3 = '双人模式更有陪伴感';
+  static const introLogin = '去登录';
+  static const introGuest = '先体验应用（游客模式）';
+
+  static const authLoginTitle = '登录';
+  static const authLoginSubtitle = '使用账号与密码登录';
+  static const authAccountPanelTitle = '账号登录';
+  static const authAccountPanelSubtitle = '输入账号和密码继续';
+  static const authAccountLabel = '账号';
+  static const authAccountHint = '4-20位字母/数字/下划线';
+  static const authPasswordLabel = '密码';
+  static const authPasswordHint = '至少6位';
+  static const authLoginButton = '账号登录';
+  static const authNoAccount = '没有账号？';
+  static const authGoRegister = '去注册';
+  static const authGuest = '先体验应用（游客模式）';
+  static const authFailPrefix = '认证失败：';
+
+  static const registerTitle = '注册账号';
+  static const registerPanelTitle = '注册';
+  static const registerPanelSubtitle = '需要邀请码才可创建账号';
+  static const registerDisplayNameLabel = '昵称';
+  static const registerDisplayNameHint = '输入昵称（可选）';
+  static const registerAccountLabel = '账号';
+  static const registerPasswordLabel = '密码';
+  static const registerInviteLabel = '邀请码';
+  static const registerInviteHint = '请输入管理员提供的邀请码';
+  static const registerSubmit = '创建账号';
+  static const registerDefaultName = '新用户';
+  static const registerSuccess = '注册成功，请登录';
+  static const registerFailPrefix = '注册失败：';
+
+  static const modeTag = 'PAIR MODE';
+  static const modeTitle = '合拍 PairTune';
+  static const modeSubtitle = '一个人也能用，两个人更好用。';
+  static const modeSoloTitle = '先单人开始';
+  static const modeSoloSubtitle = '独立管理任务和积分，后续可随时升级双人协作';
+  static const modeDuoTitle = '邀请搭档一起';
+  static const modeDuoSubtitle = '开启双人视角、协作提醒与奖励互动';
+
+  static const aboutTitle = '关于';
+  static const aboutHeaderTitle = '合拍 PairTune';
+  static const aboutHeaderSubtitle = '协作型任务与积分应用';
+  static const aboutSectionAuthor = '作者信息';
+  static const aboutSectionOpenSource = '开源说明';
+  static const aboutSectionDeps = '依赖列表';
+  static const aboutAuthorLabel = '作者';
+  static const aboutVersionLabel = '版本';
+  static const aboutFrameworkLabel = '框架';
+  static const aboutUiLabel = 'UI 组件';
+  static const aboutDataLabel = '数据存储';
+  static const aboutNetLabel = '网络与格式';
+  static const aboutLicenseLabel = '许可证提示';
+  static const aboutOpenSourceDesc = '本应用仅使用开源框架与依赖库。商业使用请遵循各依赖库的许可证要求，具体授权以各项目 LICENSE 为准。';
+  static const aboutFrameworkValue = 'Flutter / Dart';
+  static const aboutUiValue = 'Material / Cupertino Icons';
+  static const aboutDataValue = 'sqflite / path';
+  static const aboutNetValue = 'http / intl';
+  static const aboutLicenseValue = '请以各依赖库 LICENSE 为准';
+  static const aboutDepFlutter = 'flutter';
+  static const aboutDepCupertino = 'cupertino_icons';
+  static const aboutDepSqflite = 'sqflite';
+  static const aboutDepPath = 'path';
+  static const aboutDepIntl = 'intl';
+  static const aboutDepHttp = 'http';
+  static const aboutDepSdk = 'SDK';
+  static const aboutDepCupertinoVersion = '^1.0.8';
+  static const aboutDepSqfliteVersion = '^2.4.2';
+  static const aboutDepPathVersion = '^1.9.1';
+  static const aboutDepIntlVersion = '^0.20.2';
+  static const aboutDepHttpVersion = '^1.2.2';
 
   static const helpTitle = '帮助与反馈';
   static const helpSectionFaq = '常见问题';

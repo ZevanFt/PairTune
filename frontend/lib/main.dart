@@ -1,16 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'pages/auth_page.dart';
+import 'pages/intro_page.dart';
+import 'package:flutter/foundation.dart';
 import 'pages/home_page.dart';
 import 'pages/notifications_page.dart';
 import 'pages/profile_page.dart';
 import 'pages/store_page.dart';
 import 'services/auth_api_service.dart';
 import 'services/auth_session_store.dart';
+import 'i18n/app_strings.dart';
 import 'ui/app_theme.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  SystemChrome.setSystemUIOverlayStyle(
+    SystemUiOverlayStyle.dark.copyWith(statusBarColor: Colors.transparent),
+  );
   runApp(const PriorityFirstApp());
 }
 
@@ -20,7 +28,7 @@ class PriorityFirstApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: '合拍 PairTune',
+      title: AppStrings.appName,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
       home: const _RootPage(),
@@ -42,8 +50,11 @@ class _RootPageState extends State<_RootPage> {
   bool _authed = false;
   String? _authToken;
   bool? _duoEnabled;
+  bool _showIntro = false;
+  bool _forceAuth = false;
   final _authApi = AuthApiService();
   final _authStore = AuthSessionStore();
+  static const _introKey = 'intro_seen';
 
   @override
   void initState() {
@@ -52,10 +63,13 @@ class _RootPageState extends State<_RootPage> {
   }
 
   Future<void> _restoreSession() async {
+    final prefs = await SharedPreferences.getInstance();
+    final seenIntro = prefs.getBool(_introKey) ?? false;
     final token = await _authStore.getToken();
     if (token == null || token.isEmpty) {
       if (!mounted) return;
       setState(() => _authLoading = false);
+      setState(() => _showIntro = !seenIntro);
       return;
     }
     try {
@@ -65,6 +79,7 @@ class _RootPageState extends State<_RootPage> {
         _authToken = token;
         _authed = true;
         _authLoading = false;
+        _showIntro = false;
       });
     } catch (_) {
       await _authStore.clearToken();
@@ -73,6 +88,7 @@ class _RootPageState extends State<_RootPage> {
         _authToken = null;
         _authed = false;
         _authLoading = false;
+        _showIntro = !seenIntro;
       });
     }
   }
@@ -82,9 +98,17 @@ class _RootPageState extends State<_RootPage> {
       await _authStore.saveToken(token);
     }
     if (!mounted) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_introKey, true);
     setState(() {
       _authToken = token;
       _authed = true;
+      _showIntro = false;
+      if (token == 'dev_mode_token') {
+        _duoEnabled = false;
+        _owner = 'me';
+        _index = 0;
+      }
     });
   }
 
@@ -108,6 +132,31 @@ class _RootPageState extends State<_RootPage> {
     });
   }
 
+  Future<void> _exitGuest() async {
+    await _authStore.clearToken();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_introKey, true);
+    if (!mounted) return;
+    setState(() {
+      _authed = false;
+      _authToken = null;
+      _duoEnabled = null;
+      _owner = 'me';
+      _index = 0;
+      _showIntro = false;
+    });
+  }
+
+  Future<void> _dismissIntro() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_introKey, true);
+    if (!mounted) return;
+    setState(() {
+      _showIntro = false;
+      _forceAuth = true;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_authLoading) {
@@ -117,12 +166,26 @@ class _RootPageState extends State<_RootPage> {
     }
 
     if (!_authed) {
+      if (!kReleaseMode && !_forceAuth) {
+        return IntroPage(
+          onLogin: _dismissIntro,
+          onGuest: () => _handleAuthenticated('dev_mode_token'),
+        );
+      }
+      if (kReleaseMode && _showIntro) {
+        return IntroPage(
+          onLogin: _dismissIntro,
+          onGuest: () => _handleAuthenticated('dev_mode_token'),
+        );
+      }
       return AuthPage(
         onAuthenticated: _handleAuthenticated,
+        onGuest: () => _handleAuthenticated('dev_mode_token'),
       );
     }
 
-    if (_duoEnabled == null) {
+    final isGuest = _authToken == 'dev_mode_token';
+    if (_duoEnabled == null && !isGuest) {
       return _ModeSelectPage(
         onSelected: (duoEnabled) {
           setState(() {
@@ -134,36 +197,62 @@ class _RootPageState extends State<_RootPage> {
       );
     }
 
-    final pages = [
-      HomePage(
-        owner: _owner,
-        duoEnabled: _duoEnabled!,
-        onOwnerChanged: (owner) => setState(() => _owner = owner),
-      ),
-      StorePage(
-        owner: _owner,
-        duoEnabled: _duoEnabled!,
-        onOwnerChanged: (owner) => setState(() => _owner = owner),
-      ),
-      NotificationsPage(owner: _owner),
-      ProfilePage(
-        owner: _owner,
-        duoEnabled: _duoEnabled!,
-        onModeChanged: (duoEnabled) {
-          setState(() {
-            _duoEnabled = duoEnabled;
-            _owner = 'me';
-          });
-        },
-        onLogout: _handleLogout,
-      ),
-    ];
+    final pages = isGuest
+        ? [
+            HomePage(
+              owner: _owner,
+              duoEnabled: _duoEnabled ?? false,
+              onOwnerChanged: (owner) => setState(() => _owner = owner),
+              isGuest: true,
+              onExitGuest: _exitGuest,
+            ),
+            StorePage(
+              owner: _owner,
+              duoEnabled: _duoEnabled ?? false,
+              onOwnerChanged: (owner) => setState(() => _owner = owner),
+              isGuest: true,
+              onExitGuest: _exitGuest,
+            ),
+          ]
+        : [
+            HomePage(
+              owner: _owner,
+              duoEnabled: _duoEnabled!,
+              onOwnerChanged: (owner) => setState(() => _owner = owner),
+              isGuest: false,
+              onExitGuest: _exitGuest,
+            ),
+            StorePage(
+              owner: _owner,
+              duoEnabled: _duoEnabled!,
+              onOwnerChanged: (owner) => setState(() => _owner = owner),
+              isGuest: false,
+              onExitGuest: _exitGuest,
+            ),
+            NotificationsPage(owner: _owner),
+            ProfilePage(
+              owner: _owner,
+              duoEnabled: _duoEnabled!,
+              onModeChanged: (duoEnabled) {
+                setState(() {
+                  _duoEnabled = duoEnabled;
+                  _owner = 'me';
+                });
+              },
+              onLogout: _handleLogout,
+              isGuest: false,
+              onExitGuest: _exitGuest,
+            ),
+          ];
+
+    final safeIndex = _index >= pages.length ? 0 : _index;
 
     return Scaffold(
-      body: IndexedStack(index: _index, children: pages),
+      body: IndexedStack(index: safeIndex, children: pages),
       bottomNavigationBar: _BrandBottomBar(
-        index: _index,
+        index: safeIndex,
         onChanged: (index) => setState(() => _index = index),
+        isGuest: isGuest,
       ),
     );
   }
@@ -199,7 +288,7 @@ class _ModeSelectPage extends StatelessWidget {
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: const Text(
-                    'PAIR MODE',
+                    AppStrings.modeTag,
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w800,
@@ -210,7 +299,7 @@ class _ModeSelectPage extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 const Text(
-                  '合拍 PairTune',
+                  AppStrings.modeTitle,
                   style: TextStyle(
                     fontSize: 32,
                     fontWeight: FontWeight.w900,
@@ -219,20 +308,20 @@ class _ModeSelectPage extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  '一个人也能用，两个人更好用。',
+                  AppStrings.modeSubtitle,
                   style: TextStyle(fontSize: 16, color: AppTheme.textMuted),
                 ),
                 const SizedBox(height: 28),
                 _modeCard(
-                  title: '先单人开始',
-                  subtitle: '独立管理任务和积分，后续可随时升级双人协作',
+                  title: AppStrings.modeSoloTitle,
+                  subtitle: AppStrings.modeSoloSubtitle,
                   icon: Icons.person_rounded,
                   onTap: () => onSelected(false),
                 ),
                 const SizedBox(height: 12),
                 _modeCard(
-                  title: '邀请搭档一起',
-                  subtitle: '开启双人视角、协作提醒与奖励互动',
+                  title: AppStrings.modeDuoTitle,
+                  subtitle: AppStrings.modeDuoSubtitle,
                   icon: Icons.people_alt_rounded,
                   onTap: () => onSelected(true),
                 ),
@@ -309,10 +398,11 @@ class _ModeSelectPage extends StatelessWidget {
 }
 
 class _BrandBottomBar extends StatelessWidget {
-  const _BrandBottomBar({required this.index, required this.onChanged});
+  const _BrandBottomBar({required this.index, required this.onChanged, required this.isGuest});
 
   final int index;
   final ValueChanged<int> onChanged;
+  final bool isGuest;
 
   @override
   Widget build(BuildContext context) {
@@ -342,28 +432,41 @@ class _BrandBottomBar extends StatelessWidget {
         selectedIndex: index,
         height: 66,
         onDestinationSelected: onChanged,
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.check_circle_outline_rounded),
-            selectedIcon: Icon(Icons.check_circle_rounded),
-            label: '任务',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.shopping_bag_outlined),
-            selectedIcon: Icon(Icons.shopping_bag_rounded),
-            label: '商城',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.notifications_none_rounded),
-            selectedIcon: Icon(Icons.notifications_rounded),
-            label: '通知',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline_rounded),
-            selectedIcon: Icon(Icons.person_rounded),
-            label: '个人',
-          ),
-        ],
+        destinations: isGuest
+            ? const [
+                NavigationDestination(
+                  icon: Icon(Icons.check_circle_outline_rounded),
+                  selectedIcon: Icon(Icons.check_circle_rounded),
+                  label: '任务',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.shopping_bag_outlined),
+                  selectedIcon: Icon(Icons.shopping_bag_rounded),
+                  label: '商城',
+                ),
+              ]
+            : const [
+                NavigationDestination(
+                  icon: Icon(Icons.check_circle_outline_rounded),
+                  selectedIcon: Icon(Icons.check_circle_rounded),
+                  label: '任务',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.shopping_bag_outlined),
+                  selectedIcon: Icon(Icons.shopping_bag_rounded),
+                  label: '商城',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.notifications_none_rounded),
+                  selectedIcon: Icon(Icons.notifications_rounded),
+                  label: '通知',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.person_outline_rounded),
+                  selectedIcon: Icon(Icons.person_rounded),
+                  label: '个人',
+                ),
+              ],
       ),
     );
   }
