@@ -1,10 +1,17 @@
-import { Button, Card, Input, Segmented, Select, message } from 'antd';
+import { Button, Card, Input, Modal, Segmented, Select, message } from 'antd';
 import { useEffect, useMemo, useState } from 'react';
 
 import { SectionHeader } from '../components/SectionHeader';
 import { StatCard } from '../components/StatCard';
 import { SimpleTable } from '../components/SimpleTable';
-import { FeedbackItem, FeedbackStats, fetchFeedback, fetchFeedbackStats } from '../services/admin';
+import {
+  FeedbackItem,
+  FeedbackStats,
+  exportFeedback,
+  fetchFeedback,
+  fetchFeedbackStats,
+  updateFeedback
+} from '../services/admin';
 import { t } from '../i18n';
 import { formatAbsoluteChinaTime, formatAdminTime, onTimeFormatChange, toggleTimeFormatMode } from '../utils/timeFormat';
 
@@ -20,20 +27,42 @@ const ownerOptions = [
   { label: t('feedback.ownerPartner'), value: 'partner' }
 ];
 
+const statusOptions = [
+  { label: t('feedback.statusAll'), value: 'all' },
+  { label: t('feedback.statusNew'), value: 'new' },
+  { label: t('feedback.statusTriaged'), value: 'triaged' },
+  { label: t('feedback.statusResolved'), value: 'resolved' }
+];
+
 const formatNumber = (value: number) => new Intl.NumberFormat('zh-CN').format(value);
 
 export function Feedback() {
   const [range, setRange] = useState('30d');
   const [owner, setOwner] = useState('all');
   const [category, setCategory] = useState('all');
+  const [status, setStatus] = useState('all');
   const [keyword, setKeyword] = useState('');
   const [stats, setStats] = useState<FeedbackStats | null>(null);
   const [list, setList] = useState<FeedbackItem[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [, setTick] = useState(0);
+  const [editing, setEditing] = useState<FeedbackItem | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [editStatus, setEditStatus] = useState('new');
+  const [editAssignee, setEditAssignee] = useState('');
+  const [editNote, setEditNote] = useState('');
+  const [appliedFilters, setAppliedFilters] = useState<{
+    owner?: string;
+    category?: string;
+    status?: string;
+    q?: string;
+  }>({});
 
-  const load = async (nextRange: string, filters?: { owner?: string; category?: string; q?: string }) => {
+  const load = async (
+    nextRange: string,
+    filters?: { owner?: string; category?: string; status?: string; q?: string }
+  ) => {
     setLoading(true);
     try {
       const [statsData, listData] = await Promise.all([
@@ -41,6 +70,7 @@ export function Feedback() {
         fetchFeedback(nextRange, {
           owner: filters?.owner,
           category: filters?.category,
+          status: filters?.status,
           q: filters?.q,
           limit: 80
         })
@@ -56,8 +86,8 @@ export function Feedback() {
   };
 
   useEffect(() => {
-    void load(range);
-  }, [range]);
+    void load(range, appliedFilters);
+  }, [range, appliedFilters]);
 
   useEffect(() => onTimeFormatChange(() => setTick((value) => value + 1)), []);
 
@@ -82,9 +112,10 @@ export function Feedback() {
   }, [stats]);
 
   const handleApply = () => {
-    void load(range, {
+    setAppliedFilters({
       owner: owner === 'all' ? undefined : owner,
       category: category === 'all' ? undefined : category,
+      status: status === 'all' ? undefined : status,
       q: keyword.trim() || undefined
     });
   };
@@ -96,6 +127,57 @@ export function Feedback() {
       message.success(t('feedback.copied'));
     } catch {
       message.error(t('feedback.copyFail'));
+    }
+  };
+
+  const handleExport = async () => {
+    try {
+      const result = await exportFeedback(range, {
+        owner: owner === 'all' ? undefined : owner,
+        category: category === 'all' ? undefined : category,
+        status: status === 'all' ? undefined : status,
+        q: keyword.trim() || undefined,
+        limit: 2000
+      });
+      const csv = buildCsv(result.list);
+      const blob = new window.Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `feedback-${range}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      message.success(t('feedback.exported'));
+    } catch {
+      message.error(t('feedback.exportFail'));
+    }
+  };
+
+  const openEdit = (item: FeedbackItem) => {
+    setEditing(item);
+    setEditStatus(item.status || 'new');
+    setEditAssignee(item.assignee || '');
+    setEditNote(item.note || '');
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editing) return;
+    setSaving(true);
+    try {
+      const updated = await updateFeedback(editing.id, {
+        status: editStatus,
+        assignee: editAssignee.trim() || null,
+        note: editNote.trim() || null
+      });
+      setList((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+      message.success(t('feedback.updated'));
+      setEditing(null);
+    } catch {
+      message.error(t('feedback.updateFail'));
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -112,6 +194,7 @@ export function Feedback() {
               onChange={(value) => setRange(String(value))}
             />
             <Button onClick={handleApply}>{t('common.refresh')}</Button>
+            <Button onClick={handleExport}>{t('feedback.export')}</Button>
           </div>
         )}
       />
@@ -139,6 +222,12 @@ export function Feedback() {
               label: item === 'all' ? t('feedback.categoryAll') : item
             }))}
             style={{ width: 180 }}
+          />
+          <Select
+            value={status}
+            onChange={(value) => setStatus(value)}
+            options={statusOptions}
+            style={{ width: 160 }}
           />
           <Input
             placeholder={t('feedback.searchPlaceholder')}
@@ -175,6 +264,16 @@ export function Feedback() {
             },
             { title: t('feedback.owner'), dataIndex: 'owner' },
             { title: t('feedback.category'), dataIndex: 'category' },
+            {
+              title: t('feedback.status'),
+              dataIndex: 'status',
+              render: (value) => {
+                const key = String(value || 'new');
+                if (key === 'resolved') return t('feedback.statusResolved');
+                if (key === 'triaged') return t('feedback.statusTriaged');
+                return t('feedback.statusNew');
+              }
+            },
             { title: t('feedback.title'), dataIndex: 'title' },
             {
               title: t('feedback.detail'),
@@ -198,17 +297,120 @@ export function Feedback() {
               render: (value) => value || t('common.dash')
             },
             {
+              title: t('feedback.assignee'),
+              dataIndex: 'assignee',
+              render: (value) => value || t('common.dash')
+            },
+            {
+              title: t('feedback.note'),
+              dataIndex: 'note',
+              render: (value) => (
+                <span
+                  style={{
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical',
+                    overflow: 'hidden'
+                  }}
+                >
+                  {String(value || t('common.dash'))}
+                </span>
+              )
+            },
+            {
               title: t('feedback.action'),
               render: (_, row) => (
-                <Button size="small" onClick={() => handleCopy(row)}>
-                  {t('feedback.copy')}
-                </Button>
+                <div className="flex gap-2">
+                  <Button size="small" onClick={() => handleCopy(row)}>
+                    {t('feedback.copy')}
+                  </Button>
+                  <Button size="small" onClick={() => openEdit(row)}>
+                    {t('feedback.handle')}
+                  </Button>
+                </div>
               )
             }
           ]}
           emptyText={t('feedback.empty')}
         />
       </Card>
+
+      <Modal
+        title={t('feedback.handleTitle')}
+        open={Boolean(editing)}
+        onOk={handleSaveEdit}
+        confirmLoading={saving}
+        onCancel={() => setEditing(null)}
+        okText={t('feedback.handleSave')}
+        cancelText={t('common.cancel')}
+      >
+        <div className="space-y-4">
+          <div>
+            <div className="text-xs text-muted mb-1">{t('feedback.status')}</div>
+            <Select
+              value={editStatus}
+              onChange={(value) => setEditStatus(value)}
+              options={statusOptions.filter((item) => item.value !== 'all')}
+              style={{ width: '100%' }}
+            />
+          </div>
+          <div>
+            <div className="text-xs text-muted mb-1">{t('feedback.assignee')}</div>
+            <Input
+              placeholder={t('feedback.assigneePlaceholder')}
+              value={editAssignee}
+              onChange={(event) => setEditAssignee(event.target.value)}
+            />
+          </div>
+          <div>
+            <div className="text-xs text-muted mb-1">{t('feedback.note')}</div>
+            <Input.TextArea
+              placeholder={t('feedback.notePlaceholder')}
+              value={editNote}
+              onChange={(event) => setEditNote(event.target.value)}
+              rows={4}
+            />
+          </div>
+        </div>
+      </Modal>
     </div>
   );
+}
+
+function buildCsv(list: FeedbackItem[]) {
+  const header = [
+    'id',
+    'owner',
+    'category',
+    'status',
+    'title',
+    'detail',
+    'contact',
+    'assignee',
+    'note',
+    'created_at',
+    'updated_at'
+  ];
+  const rows = list.map((item) => [
+    item.id,
+    item.owner,
+    item.category,
+    item.status,
+    item.title,
+    item.detail,
+    item.contact || '',
+    item.assignee || '',
+    item.note || '',
+    item.created_at,
+    item.updated_at
+  ]);
+  return [header, ...rows].map((row) => row.map(csvEscape).join(',')).join('\n');
+}
+
+function csvEscape(value: unknown) {
+  const text = String(value ?? '');
+  if (text.includes('"') || text.includes(',') || text.includes('\n')) {
+    return `"${text.replace(/"/g, '""')}"`;
+  }
+  return text;
 }
