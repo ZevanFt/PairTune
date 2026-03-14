@@ -1,6 +1,6 @@
 # 合拍 PairTune 后端数据表与 API 说明
 
-更新时间：2026-03-10
+更新时间：2026-03-14
 
 ## 1. 技术与边界
 - 运行时：Node.js + Express
@@ -78,6 +78,11 @@
 - `notifications_enabled` INTEGER NOT NULL DEFAULT 1
 - `quiet_hours_start` TEXT
 - `quiet_hours_end` TEXT
+- `relation_checkin` INTEGER NOT NULL DEFAULT 1
+- `relation_reminder` INTEGER NOT NULL DEFAULT 1
+- `relation_coop_hint` INTEGER NOT NULL DEFAULT 1
+- `security_login_alert` INTEGER NOT NULL DEFAULT 1
+- `security_risk_guard` INTEGER NOT NULL DEFAULT 1
 - `updated_at` TEXT NOT NULL
 
 ### 2.8 `notifications`
@@ -90,7 +95,17 @@
 - `is_read` INTEGER NOT NULL DEFAULT 0
 - `created_at` TEXT NOT NULL
 
-### 2.9 `auth_users`（新增）
+### 2.9 `feedback_items`（新增）
+用户反馈
+- `id` INTEGER PK AUTOINCREMENT
+- `owner` TEXT NOT NULL
+- `category` TEXT NOT NULL
+- `title` TEXT NOT NULL
+- `detail` TEXT NOT NULL
+- `contact` TEXT
+- `created_at` TEXT NOT NULL
+
+### 2.10 `auth_users`（新增）
 账号用户表（账号 / 手机号 / 邮箱 / 微信）
 - `id` INTEGER PK AUTOINCREMENT
 - `account` TEXT UNIQUE (可空)
@@ -106,7 +121,7 @@
 - `created_at` TEXT NOT NULL
 - `updated_at` TEXT NOT NULL
 
-### 2.10 `auth_sessions`（新增）
+### 2.11 `auth_sessions`（新增）
 登录会话表（Token）
 - `token` TEXT PK
 - `user_id` INTEGER NOT NULL
@@ -116,7 +131,7 @@
 - `created_at` TEXT NOT NULL
 - `last_seen_at` TEXT NOT NULL
 
-### 2.11 `auth_phone_codes`（新增）
+### 2.12 `auth_phone_codes`（新增）
 手机验证码表
 - `id` INTEGER PK AUTOINCREMENT
 - `phone` TEXT NOT NULL
@@ -126,7 +141,7 @@
 - `used_at` TEXT
 - `created_at` TEXT NOT NULL
 
-### 2.12 `auth_email_codes`（新增）
+### 2.13 `auth_email_codes`（新增）
 邮箱验证码表
 - `id` INTEGER PK AUTOINCREMENT
 - `email` TEXT NOT NULL
@@ -136,7 +151,7 @@
 - `used_at` TEXT
 - `created_at` TEXT NOT NULL
 
-### 2.13 `auth_security_events`（新增）
+### 2.14 `auth_security_events`（新增）
 认证安全事件审计（限流/失败统计）
 - `id` INTEGER PK AUTOINCREMENT
 - `action` TEXT NOT NULL
@@ -147,7 +162,7 @@
 - `detail` TEXT
 - `created_at` TEXT NOT NULL
 
-### 2.14 `auth_roles`（新增）
+### 2.15 `auth_roles`（新增）
 角色表
 - `id` INTEGER PK AUTOINCREMENT
 - `name` TEXT UNIQUE NOT NULL
@@ -155,7 +170,7 @@
 - `created_at` TEXT NOT NULL
 - `updated_at` TEXT NOT NULL
 
-### 2.15 `auth_permissions`（新增）
+### 2.16 `auth_permissions`（新增）
 权限点表
 - `id` INTEGER PK AUTOINCREMENT
 - `code` TEXT UNIQUE NOT NULL
@@ -164,19 +179,19 @@
 - `created_at` TEXT NOT NULL
 - `updated_at` TEXT NOT NULL
 
-### 2.16 `auth_role_permissions`（新增）
+### 2.17 `auth_role_permissions`（新增）
 角色权限关联
 - `role_id` INTEGER NOT NULL
 - `permission_id` INTEGER NOT NULL
 - `created_at` TEXT NOT NULL
 
-### 2.17 `auth_user_roles`（新增）
+### 2.18 `auth_user_roles`（新增）
 用户角色关联
 - `user_id` INTEGER NOT NULL
 - `role_id` INTEGER NOT NULL
 - `created_at` TEXT NOT NULL
 
-### 2.14 `auth_invite_codes`（新增）
+### 2.19 `auth_invite_codes`（新增）
 注册邀请码
 - `id` INTEGER PK AUTOINCREMENT
 - `code` TEXT UNIQUE NOT NULL
@@ -227,17 +242,21 @@
 - `GET /settings?owner=me|partner`
 - `PUT /settings`
 
-### 3.5 通知中心（新增）
+### 3.5 反馈（新增）
+- `GET /feedback?owner=me|partner&limit=1..100`
+- `POST /feedback`
+
+### 3.6 通知中心（新增）
 - `GET /notifications?owner=me|partner&status=all|unread&limit=1..100`
 - `POST /notifications`
 - `POST /notifications/mark-read`
 - `POST /notifications/mark-all-read`
 
-### 3.6 快照导出
+### 3.7 快照导出
 - `GET /export/snapshot`
-  - 现包含：`tasks/points/ledger/products/owned_items/profiles/settings/notifications/auth_users/auth_sessions/auth_security_events/auth_email_codes/auth_invite_codes/auth_roles/auth_permissions/auth_role_permissions/auth_user_roles`
+  - 现包含：`tasks/points/ledger/products/owned_items/feedback_items/profiles/settings/notifications/auth_users/auth_sessions/auth_security_events/auth_email_codes/auth_invite_codes/auth_roles/auth_permissions/auth_role_permissions/auth_user_roles`
 
-### 3.7 认证（新增）
+### 3.8 认证（新增）
 - `POST /auth/register/account`
   - 入参：`account/password/display_name/invite_code`
   - 规则：账号 4-20 位 `a-z0-9_`，密码至少 6 位
@@ -306,7 +325,7 @@
   - `EMAIL_FROM`（发件人）
   - `EMAIL_SUBJECT`（可选，邮件主题）
 
-### 3.8 管理员（新增）
+### 3.9 管理员（新增）
 - `POST /admin/invite-codes`
   - 入参：`count(1-50)/usage_limit(1-10)/expires_at?`
   - 说明：生成邀请码列表
@@ -317,7 +336,7 @@
   - 入参：`code`
   - 说明：禁用邀请码
 
-### 3.9 权限与角色（新增）
+### 3.10 权限与角色（新增）
 - `GET /admin/permissions`
   - 说明：获取全部权限点
 - `GET /admin/roles`
@@ -335,7 +354,7 @@
   - 入参：`role_ids[]`
   - 说明：设置用户角色（覆盖式）
 
-### 3.10 管理后台统计与系统（新增）
+### 3.11 管理后台统计与系统（新增）
 - `GET /admin/stats/overview?range=7d|30d|90d`
   - 说明：仪表盘概览（用户、任务、积分、商城、邀请码）
 - `GET /admin/stats/series?range=7d|30d|90d`
@@ -353,7 +372,7 @@
 - `GET /admin/settings`
   - 说明：系统设置与运行信息（短信/邮件 Provider、环境、时间）
 
-### 3.11 管理后台初始化（新增）
+### 3.12 管理后台初始化（新增）
 - `GET /admin/bootstrap/status`
   - 说明：返回是否已初始化管理员
 - `POST /admin/bootstrap`

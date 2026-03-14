@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
-import '../config/profile_config.dart';
 import '../i18n/app_strings.dart';
+import '../services/account_api_service.dart';
 import '../ui/app_space.dart';
 import '../ui/app_surface.dart';
 import '../ui/app_text.dart';
 import '../ui/app_theme.dart';
+import '../utils/error_display.dart';
 
 class AccountSecurityPage extends StatefulWidget {
-  const AccountSecurityPage({super.key});
+  const AccountSecurityPage({super.key, required this.owner});
+
+  final String owner;
 
   @override
   State<AccountSecurityPage> createState() => _AccountSecurityPageState();
@@ -17,9 +19,12 @@ class AccountSecurityPage extends StatefulWidget {
 
 class _AccountSecurityPageState extends State<AccountSecurityPage> {
   final _passwordController = TextEditingController();
+  final _accountApi = AccountApiService();
   bool _loginAlert = true;
   bool _riskGuard = true;
   int _strength = 0;
+  bool _loading = true;
+  String? _error;
 
   @override
   void initState() {
@@ -34,18 +39,42 @@ class _AccountSecurityPageState extends State<AccountSecurityPage> {
   }
 
   Future<void> _loadPrefs() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (!mounted) return;
-    setState(() {
-      _loginAlert = prefs.getBool(ProfileConfig.prefSecurityLoginAlert) ?? true;
-      _riskGuard = prefs.getBool(ProfileConfig.prefSecurityRiskGuard) ?? true;
-    });
+    try {
+      final settings = await _accountApi.getSettings(widget.owner);
+      if (!mounted) return;
+      setState(() {
+        _loginAlert = settings.securityLoginAlert;
+        _riskGuard = settings.securityRiskGuard;
+        _loading = false;
+        _error = null;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = formatErrorMessage(e);
+      });
+    }
   }
 
-  Future<void> _savePrefs() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(ProfileConfig.prefSecurityLoginAlert, _loginAlert);
-    await prefs.setBool(ProfileConfig.prefSecurityRiskGuard, _riskGuard);
+  Future<bool> _applySetting({
+    bool? loginAlert,
+    bool? riskGuard,
+  }) async {
+    try {
+      await _accountApi.updateSettings(
+        owner: widget.owner,
+        securityLoginAlert: loginAlert,
+        securityRiskGuard: riskGuard,
+      );
+      return true;
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(formatErrorMessage(e))),
+      );
+      return false;
+    }
   }
 
   void _updateStrength(String value) {
@@ -81,6 +110,19 @@ class _AccountSecurityPageState extends State<AccountSecurityPage> {
               '',
             ),
             AppSpace.h8,
+            if (_loading)
+              const Padding(
+                padding: EdgeInsets.only(bottom: 12),
+                child: LinearProgressIndicator(minHeight: 2),
+              ),
+            if (_error != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Text(
+                  _error!,
+                  style: AppText.bodyMuted.copyWith(color: AppTheme.danger),
+                ),
+              ),
             Container(
               padding: const EdgeInsets.all(4),
               decoration: AppSurface.card(alpha: 0.95),
@@ -90,9 +132,14 @@ class _AccountSecurityPageState extends State<AccountSecurityPage> {
                     AppStrings.accountSecurityLoginAlert,
                     AppStrings.accountSecurityLoginAlertHint,
                     _loginAlert,
-                    (value) {
+                    (value) async {
+                      final prev = _loginAlert;
                       setState(() => _loginAlert = value);
-                      _savePrefs();
+                      final ok = await _applySetting(loginAlert: value);
+                      if (!mounted) return;
+                      if (!ok) {
+                        setState(() => _loginAlert = prev);
+                      }
                     },
                   ),
                   _buildDivider(),
@@ -100,9 +147,14 @@ class _AccountSecurityPageState extends State<AccountSecurityPage> {
                     AppStrings.accountSecurityRiskGuard,
                     AppStrings.accountSecurityRiskGuardHint,
                     _riskGuard,
-                    (value) {
+                    (value) async {
+                      final prev = _riskGuard;
                       setState(() => _riskGuard = value);
-                      _savePrefs();
+                      final ok = await _applySetting(riskGuard: value);
+                      if (!mounted) return;
+                      if (!ok) {
+                        setState(() => _riskGuard = prev);
+                      }
                     },
                   ),
                 ],

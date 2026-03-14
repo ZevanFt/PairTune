@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
-import '../config/profile_config.dart';
 import '../data/task_db.dart';
 import '../i18n/app_strings.dart';
+import '../services/account_api_service.dart';
 import '../services/store_api_service.dart';
 import '../ui/app_space.dart';
 import '../ui/app_surface.dart';
@@ -12,7 +11,9 @@ import '../ui/app_theme.dart';
 import '../utils/error_display.dart';
 
 class PrivacyDataPage extends StatefulWidget {
-  const PrivacyDataPage({super.key});
+  const PrivacyDataPage({super.key, required this.owner});
+
+  final String owner;
 
   @override
   State<PrivacyDataPage> createState() => _PrivacyDataPageState();
@@ -20,6 +21,7 @@ class PrivacyDataPage extends StatefulWidget {
 
 class _PrivacyDataPageState extends State<PrivacyDataPage> {
   final _storeApi = StoreApiService();
+  final _accountApi = AccountApiService();
   final _taskDb = TaskDb.instance;
 
   int _tasks = 0;
@@ -72,17 +74,25 @@ class _PrivacyDataPageState extends State<PrivacyDataPage> {
   Future<void> _confirmAndClearPrefs() async {
     final confirmed = await _confirmAction(AppStrings.privacyClearPrefs);
     if (confirmed != true) return;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(ProfileConfig.prefRelationshipCheckin);
-    await prefs.remove(ProfileConfig.prefRelationshipReminder);
-    await prefs.remove(ProfileConfig.prefRelationshipCoopHint);
-    await prefs.remove(ProfileConfig.prefSecurityLoginAlert);
-    await prefs.remove(ProfileConfig.prefSecurityRiskGuard);
-    await prefs.remove(ProfileConfig.prefFeedbackItems);
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text(AppStrings.privacyClearedPrefs)),
-    );
+    try {
+      await _accountApi.updateSettings(
+        owner: widget.owner,
+        relationCheckin: true,
+        relationReminder: true,
+        relationCoopHint: true,
+        securityLoginAlert: true,
+        securityRiskGuard: true,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(AppStrings.privacyClearedPrefs)),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(formatErrorMessage(e))),
+      );
+    }
   }
 
   Future<bool?> _confirmAction(String title) {

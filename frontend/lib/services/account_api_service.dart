@@ -37,6 +37,11 @@ class AppSettings {
     required this.owner,
     required this.duoEnabled,
     required this.notificationsEnabled,
+    required this.relationCheckin,
+    required this.relationReminder,
+    required this.relationCoopHint,
+    required this.securityLoginAlert,
+    required this.securityRiskGuard,
     this.quietHoursStart,
     this.quietHoursEnd,
   });
@@ -44,6 +49,11 @@ class AppSettings {
   final String owner;
   final bool duoEnabled;
   final bool notificationsEnabled;
+  final bool relationCheckin;
+  final bool relationReminder;
+  final bool relationCoopHint;
+  final bool securityLoginAlert;
+  final bool securityRiskGuard;
   final String? quietHoursStart;
   final String? quietHoursEnd;
 
@@ -53,6 +63,11 @@ class AppSettings {
       duoEnabled: ((map['duo_enabled'] as num?) ?? 0).toInt() == 1,
       notificationsEnabled:
           ((map['notifications_enabled'] as num?) ?? 1).toInt() == 1,
+      relationCheckin: ((map['relation_checkin'] as num?) ?? 1).toInt() == 1,
+      relationReminder: ((map['relation_reminder'] as num?) ?? 1).toInt() == 1,
+      relationCoopHint: ((map['relation_coop_hint'] as num?) ?? 1).toInt() == 1,
+      securityLoginAlert: ((map['security_login_alert'] as num?) ?? 1).toInt() == 1,
+      securityRiskGuard: ((map['security_risk_guard'] as num?) ?? 1).toInt() == 1,
       quietHoursStart: map['quiet_hours_start'] as String?,
       quietHoursEnd: map['quiet_hours_end'] as String?,
     );
@@ -159,6 +174,11 @@ class AccountApiService {
     required String owner,
     bool? duoEnabled,
     bool? notificationsEnabled,
+    bool? relationCheckin,
+    bool? relationReminder,
+    bool? relationCoopHint,
+    bool? securityLoginAlert,
+    bool? securityRiskGuard,
     String? quietHoursStart,
     String? quietHoursEnd,
   }) async {
@@ -167,6 +187,11 @@ class AccountApiService {
     if (notificationsEnabled != null) {
       body['notifications_enabled'] = notificationsEnabled;
     }
+    if (relationCheckin != null) body['relation_checkin'] = relationCheckin;
+    if (relationReminder != null) body['relation_reminder'] = relationReminder;
+    if (relationCoopHint != null) body['relation_coop_hint'] = relationCoopHint;
+    if (securityLoginAlert != null) body['security_login_alert'] = securityLoginAlert;
+    if (securityRiskGuard != null) body['security_risk_guard'] = securityRiskGuard;
     if (quietHoursStart != null) body['quiet_hours_start'] = quietHoursStart;
     if (quietHoursEnd != null) body['quiet_hours_end'] = quietHoursEnd;
 

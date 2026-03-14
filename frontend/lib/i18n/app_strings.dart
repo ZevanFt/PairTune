@@ -167,13 +167,13 @@ class AppStrings {
   static const privacySectionLocal = '本机数据';
   static const privacyClearTasks = '清理本机任务缓存';
   static const privacyClearTasksHint = '仅清理设备上的离线任务';
-  static const privacyClearPrefs = '清理本机偏好设置';
-  static const privacyClearPrefsHint = '仅清理本机偏好，不影响云端';
+  static const privacyClearPrefs = '重置账号偏好设置';
+  static const privacyClearPrefsHint = '重置关系与安全偏好';
   static const privacyConfirmTitle = '确认操作';
   static const privacyConfirmCancel = '取消';
   static const privacyConfirmOk = '确认清理';
   static const privacyClearedTasks = '本机任务缓存已清理';
-  static const privacyClearedPrefs = '本机偏好设置已清理';
+  static const privacyClearedPrefs = '账号偏好设置已重置';
   static const privacyConfirmDetail = '即将执行：{title}';
 
   static String profileCompletionRate(int rate) => '完成率 $rate%';

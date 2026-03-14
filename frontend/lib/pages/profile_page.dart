@@ -392,7 +392,9 @@ class _ProfilePageState extends State<ProfilePage> {
             AppStrings.profileAccountSecuritySubtitle,
             onTap: () => Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => const AccountSecurityPage()),
+              MaterialPageRoute(
+                builder: (_) => AccountSecurityPage(owner: widget.owner),
+              ),
             ),
           ),
           _buildDivider(),
@@ -419,7 +421,9 @@ class _ProfilePageState extends State<ProfilePage> {
             AppStrings.profileHelpSubtitle,
             onTap: () => Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => const HelpFeedbackPage()),
+              MaterialPageRoute(
+                builder: (_) => HelpFeedbackPage(owner: widget.owner),
+              ),
             ),
           ),
           if (_showDebugHint && !_debugUnlocked) ...[
@@ -447,7 +451,9 @@ class _ProfilePageState extends State<ProfilePage> {
             AppStrings.profilePrivacySubtitle,
             onTap: () => Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => const PrivacyDataPage()),
+              MaterialPageRoute(
+                builder: (_) => PrivacyDataPage(owner: widget.owner),
+              ),
             ),
           ),
           _buildDivider(),

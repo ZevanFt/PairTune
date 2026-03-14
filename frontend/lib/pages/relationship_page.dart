@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/profile_config.dart';
 import '../i18n/app_strings.dart';
@@ -30,6 +29,8 @@ class _RelationshipPageState extends State<RelationshipPage> {
   bool _reminder = true;
   bool _coopHint = true;
   bool _saving = false;
+  bool _loading = true;
+  String? _error;
 
   @override
   void initState() {
@@ -39,7 +40,7 @@ class _RelationshipPageState extends State<RelationshipPage> {
     if (_useCustomLabel) {
       _customLabelController.text = _label;
     }
-    _loadPrefs();
+    _loadSettings();
   }
 
   @override
@@ -48,14 +49,24 @@ class _RelationshipPageState extends State<RelationshipPage> {
     super.dispose();
   }
 
-  Future<void> _loadPrefs() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (!mounted) return;
-    setState(() {
-      _checkin = prefs.getBool(ProfileConfig.prefRelationshipCheckin) ?? true;
-      _reminder = prefs.getBool(ProfileConfig.prefRelationshipReminder) ?? true;
-      _coopHint = prefs.getBool(ProfileConfig.prefRelationshipCoopHint) ?? true;
-    });
+  Future<void> _loadSettings() async {
+    try {
+      final settings = await _api.getSettings(widget.profile.owner);
+      if (!mounted) return;
+      setState(() {
+        _checkin = settings.relationCheckin;
+        _reminder = settings.relationReminder;
+        _coopHint = settings.relationCoopHint;
+        _loading = false;
+        _error = null;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = formatErrorMessage(e);
+      });
+    }
   }
 
   Future<void> _save() async {
@@ -64,22 +75,24 @@ class _RelationshipPageState extends State<RelationshipPage> {
     final label = _useCustomLabel ? _customLabelController.text.trim() : _label;
     setState(() => _saving = true);
     try {
-      final updated = await _api.updateProfile(
+      final updatedProfile = await _api.updateProfile(
         owner: widget.profile.owner,
         displayName: widget.profile.displayName,
         bio: widget.profile.bio,
         avatar: widget.profile.avatar,
         relationshipLabel: label,
       );
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(ProfileConfig.prefRelationshipCheckin, _checkin);
-      await prefs.setBool(ProfileConfig.prefRelationshipReminder, _reminder);
-      await prefs.setBool(ProfileConfig.prefRelationshipCoopHint, _coopHint);
+      await _api.updateSettings(
+        owner: widget.profile.owner,
+        relationCheckin: _checkin,
+        relationReminder: _reminder,
+        relationCoopHint: _coopHint,
+      );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text(AppStrings.relationshipSaved)),
       );
-      Navigator.pop(context, updated);
+      Navigator.pop(context, updatedProfile);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -142,6 +155,19 @@ class _RelationshipPageState extends State<RelationshipPage> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
             children: [
+              if (_loading)
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 12),
+                  child: LinearProgressIndicator(minHeight: 2),
+                ),
+              if (_error != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Text(
+                    _error!,
+                    style: AppText.bodyMuted.copyWith(color: AppTheme.danger),
+                  ),
+                ),
               _buildSectionTitle(
                 AppStrings.relationshipSectionLabel,
                 AppStrings.relationshipSectionLabelHint,

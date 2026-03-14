@@ -2,17 +2,20 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/profile_config.dart';
 import '../i18n/app_strings.dart';
+import '../services/feedback_api_service.dart';
 import '../ui/app_space.dart';
 import '../ui/app_surface.dart';
 import '../ui/app_text.dart';
 import '../ui/app_theme.dart';
+import '../utils/error_display.dart';
 
 class HelpFeedbackPage extends StatefulWidget {
-  const HelpFeedbackPage({super.key});
+  const HelpFeedbackPage({super.key, required this.owner});
+
+  final String owner;
 
   @override
   State<HelpFeedbackPage> createState() => _HelpFeedbackPageState();
@@ -23,9 +26,12 @@ class _HelpFeedbackPageState extends State<HelpFeedbackPage> {
   final _titleController = TextEditingController();
   final _detailController = TextEditingController();
   final _contactController = TextEditingController();
+  final _feedbackApi = FeedbackApiService();
 
   String _category = AppStrings.feedbackCategories.first;
-  List<Map<String, dynamic>> _recent = [];
+  List<FeedbackItem> _recent = [];
+  bool _loadingRecent = false;
+  String? _recentError;
   bool _saving = false;
 
   @override
@@ -43,18 +49,22 @@ class _HelpFeedbackPageState extends State<HelpFeedbackPage> {
   }
 
   Future<void> _loadRecent() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(ProfileConfig.prefFeedbackItems);
-    if (raw == null || raw.isEmpty) return;
+    if (_loadingRecent) return;
+    setState(() {
+      _loadingRecent = true;
+      _recentError = null;
+    });
     try {
-      final data = jsonDecode(raw) as List<dynamic>;
+      final list = await _feedbackApi.listFeedback(widget.owner, limit: 20);
       if (!mounted) return;
-      setState(() {
-        _recent = data.whereType<Map<String, dynamic>>().take(20).toList();
-      });
-    } catch (_) {
+      setState(() => _recent = list);
+    } catch (e) {
       if (!mounted) return;
-      setState(() => _recent = []);
+      setState(() => _recentError = formatErrorMessage(e));
+    } finally {
+      if (mounted) {
+        setState(() => _loadingRecent = false);
+      }
     }
   }
 
@@ -62,29 +72,35 @@ class _HelpFeedbackPageState extends State<HelpFeedbackPage> {
     if (_saving) return;
     if (!_formKey.currentState!.validate()) return;
     setState(() => _saving = true);
-    final item = {
-      'category': _category,
-      'title': _titleController.text.trim(),
-      'detail': _detailController.text.trim(),
-      'contact': _contactController.text.trim(),
-      'created_at': DateTime.now().toIso8601String(),
-    };
-    final next = [item, ..._recent];
-    final trimmed = next.take(20).toList();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(ProfileConfig.prefFeedbackItems, jsonEncode(trimmed));
-    if (!mounted) return;
-    setState(() {
-      _recent = trimmed;
-      _saving = false;
-      _titleController.clear();
-      _detailController.clear();
-      _contactController.clear();
-      _category = AppStrings.feedbackCategories.first;
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text(AppStrings.helpFeedbackSaved)),
-    );
+    try {
+      final created = await _feedbackApi.createFeedback(
+        owner: widget.owner,
+        category: _category,
+        title: _titleController.text.trim(),
+        detail: _detailController.text.trim(),
+        contact: _contactController.text.trim().isEmpty
+            ? null
+            : _contactController.text.trim(),
+      );
+      if (!mounted) return;
+      setState(() {
+        _recent = [created, ..._recent].take(20).toList();
+        _saving = false;
+        _titleController.clear();
+        _detailController.clear();
+        _contactController.clear();
+        _category = AppStrings.feedbackCategories.first;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(AppStrings.helpFeedbackSaved)),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(formatErrorMessage(e))),
+      );
+    }
   }
 
   Future<void> _copyFeedback() async {
@@ -158,6 +174,19 @@ class _HelpFeedbackPageState extends State<HelpFeedbackPage> {
             ),
             AppSpace.h8,
             _buildFeedbackForm(),
+            if (_loadingRecent)
+              const Padding(
+                padding: EdgeInsets.only(top: 12),
+                child: LinearProgressIndicator(minHeight: 2),
+              ),
+            if (_recentError != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  _recentError!,
+                  style: AppText.bodyMuted.copyWith(color: AppTheme.danger),
+                ),
+              ),
             if (_recent.isNotEmpty) ...[
               AppSpace.h16,
               _buildSectionTitle(AppStrings.helpRecentFeedback, ''),
@@ -305,7 +334,7 @@ class _HelpFeedbackPageState extends State<HelpFeedbackPage> {
     );
   }
 
-  Widget _buildRecentItem(Map<String, dynamic> item) {
+  Widget _buildRecentItem(FeedbackItem item) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
@@ -326,18 +355,21 @@ class _HelpFeedbackPageState extends State<HelpFeedbackPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(item['title'] as String? ?? '', style: AppText.cardTitle),
+                Text(item.title, style: AppText.cardTitle),
                 const SizedBox(height: 2),
-                Text(
-                  '${item['category'] ?? ''}',
-                  style: AppText.bodyMuted,
-                ),
+                Text(item.category, style: AppText.bodyMuted),
               ],
             ),
           ),
           IconButton(
             onPressed: () async {
-              await Clipboard.setData(ClipboardData(text: jsonEncode(item)));
+              await Clipboard.setData(ClipboardData(text: jsonEncode({
+                'category': item.category,
+                'title': item.title,
+                'detail': item.detail,
+                'contact': item.contact,
+                'created_at': item.createdAt.toIso8601String(),
+              })));
               if (!mounted) return;
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text(AppStrings.helpFeedbackCopied)),

@@ -7,6 +7,7 @@ const Database = require('better-sqlite3');
 const { createSmsProvider } = require('./sms_provider');
 const { createEmailProvider } = require('./email_provider');
 const { runMigrations } = require('./db_migrate');
+const { APP_CONFIG } = require('./config/app_config');
 
 function loadEnvFile() {
   const envPath = path.join(__dirname, '..', '.env.local');
@@ -29,6 +30,7 @@ loadEnvFile();
 const app = express();
 const port = process.env.PORT || 8110;
 const dbPath = process.env.DB_PATH || path.join(__dirname, '..', 'data', 'priority_first.db');
+console.log(JSON.stringify({ type: 'db_path', db_path: dbPath, ts: new Date().toISOString() }));
 const db = new Database(dbPath);
 const smsProvider = createSmsProvider();
 const emailProvider = createEmailProvider();
@@ -386,6 +388,11 @@ CREATE TABLE IF NOT EXISTS app_settings (
   notifications_enabled INTEGER NOT NULL DEFAULT 1,
   quiet_hours_start TEXT,
   quiet_hours_end TEXT,
+  relation_checkin INTEGER NOT NULL DEFAULT 1,
+  relation_reminder INTEGER NOT NULL DEFAULT 1,
+  relation_coop_hint INTEGER NOT NULL DEFAULT 1,
+  security_login_alert INTEGER NOT NULL DEFAULT 1,
+  security_risk_guard INTEGER NOT NULL DEFAULT 1,
   updated_at TEXT NOT NULL
 );
 
@@ -396,6 +403,16 @@ CREATE TABLE IF NOT EXISTS notifications (
   title TEXT NOT NULL,
   body TEXT NOT NULL,
   is_read INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS feedback_items (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  owner TEXT NOT NULL,
+  category TEXT NOT NULL,
+  title TEXT NOT NULL,
+  detail TEXT NOT NULL,
+  contact TEXT,
   created_at TEXT NOT NULL
 );
 
@@ -559,9 +576,32 @@ CREATE TABLE IF NOT EXISTS auth_user_roles (
     db.exec('ALTER TABLE auth_security_events ADD COLUMN email TEXT;');
   }
 
+  const settingsColumns = db.prepare("PRAGMA table_info('app_settings')").all();
+  const hasRelationCheckin = settingsColumns.some((col) => col.name === 'relation_checkin');
+  const hasRelationReminder = settingsColumns.some((col) => col.name === 'relation_reminder');
+  const hasRelationCoopHint = settingsColumns.some((col) => col.name === 'relation_coop_hint');
+  const hasSecurityLoginAlert = settingsColumns.some((col) => col.name === 'security_login_alert');
+  const hasSecurityRiskGuard = settingsColumns.some((col) => col.name === 'security_risk_guard');
+  if (!hasRelationCheckin) {
+    db.exec('ALTER TABLE app_settings ADD COLUMN relation_checkin INTEGER NOT NULL DEFAULT 1;');
+  }
+  if (!hasRelationReminder) {
+    db.exec('ALTER TABLE app_settings ADD COLUMN relation_reminder INTEGER NOT NULL DEFAULT 1;');
+  }
+  if (!hasRelationCoopHint) {
+    db.exec('ALTER TABLE app_settings ADD COLUMN relation_coop_hint INTEGER NOT NULL DEFAULT 1;');
+  }
+  if (!hasSecurityLoginAlert) {
+    db.exec('ALTER TABLE app_settings ADD COLUMN security_login_alert INTEGER NOT NULL DEFAULT 1;');
+  }
+  if (!hasSecurityRiskGuard) {
+    db.exec('ALTER TABLE app_settings ADD COLUMN security_risk_guard INTEGER NOT NULL DEFAULT 1;');
+  }
+
   db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_auth_invite_codes_code_unique ON auth_invite_codes(code);');
   db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_auth_roles_name_unique ON auth_roles(name);');
   db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_auth_permissions_code_unique ON auth_permissions(code);');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_feedback_items_owner ON feedback_items(owner);');
 
   const now = new Date().toISOString();
   db.prepare(
@@ -577,11 +617,17 @@ CREATE TABLE IF NOT EXISTS auth_user_roles (
     'INSERT OR IGNORE INTO profiles(owner, display_name, bio, avatar, relationship_label, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
   ).run(OWNER_PARTNER, '搭档', null, null, '搭档', now);
   db.prepare(
-    'INSERT OR IGNORE INTO app_settings(owner, duo_enabled, notifications_enabled, quiet_hours_start, quiet_hours_end, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
-  ).run(OWNER_ME, 0, 1, '22:00', '08:00', now);
+    `INSERT OR IGNORE INTO app_settings(
+       owner, duo_enabled, notifications_enabled, quiet_hours_start, quiet_hours_end,
+       relation_checkin, relation_reminder, relation_coop_hint, security_login_alert, security_risk_guard, updated_at
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(OWNER_ME, 0, 1, '22:00', '08:00', 1, 1, 1, 1, 1, now);
   db.prepare(
-    'INSERT OR IGNORE INTO app_settings(owner, duo_enabled, notifications_enabled, quiet_hours_start, quiet_hours_end, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
-  ).run(OWNER_PARTNER, 0, 1, '22:00', '08:00', now);
+    `INSERT OR IGNORE INTO app_settings(
+       owner, duo_enabled, notifications_enabled, quiet_hours_start, quiet_hours_end,
+       relation_checkin, relation_reminder, relation_coop_hint, security_login_alert, security_risk_guard, updated_at
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(OWNER_PARTNER, 0, 1, '22:00', '08:00', 1, 1, 1, 1, 1, now);
 
   const sampleCount = db.prepare('SELECT COUNT(1) AS count FROM notifications').get().count;
   if (sampleCount === 0) {
@@ -1286,7 +1332,8 @@ app.get('/settings', (req, res) => {
   }
   const settings = db
     .prepare(
-      `SELECT owner, duo_enabled, notifications_enabled, quiet_hours_start, quiet_hours_end, updated_at
+      `SELECT owner, duo_enabled, notifications_enabled, quiet_hours_start, quiet_hours_end,
+       relation_checkin, relation_reminder, relation_coop_hint, security_login_alert, security_risk_guard, updated_at
        FROM app_settings WHERE owner = ?`,
     )
     .get(owner);
@@ -1300,6 +1347,11 @@ app.put('/settings', (req, res) => {
     notifications_enabled,
     quiet_hours_start = null,
     quiet_hours_end = null,
+    relation_checkin,
+    relation_reminder,
+    relation_coop_hint,
+    security_login_alert,
+    security_risk_guard,
   } = req.body || {};
   if (!validateOwner(owner)) {
     return res.status(400).json({ code: 400, message: 'owner 参数非法', result: null });
@@ -1312,23 +1364,117 @@ app.put('/settings', (req, res) => {
   const nextNotificationsEnabled = notifications_enabled === undefined
     ? existing.notifications_enabled
     : toBoolInt(notifications_enabled, existing.notifications_enabled === 1);
+  const nextRelationCheckin = relation_checkin === undefined
+    ? existing.relation_checkin
+    : toBoolInt(relation_checkin, existing.relation_checkin === 1);
+  const nextRelationReminder = relation_reminder === undefined
+    ? existing.relation_reminder
+    : toBoolInt(relation_reminder, existing.relation_reminder === 1);
+  const nextRelationCoopHint = relation_coop_hint === undefined
+    ? existing.relation_coop_hint
+    : toBoolInt(relation_coop_hint, existing.relation_coop_hint === 1);
+  const nextSecurityLoginAlert = security_login_alert === undefined
+    ? existing.security_login_alert
+    : toBoolInt(security_login_alert, existing.security_login_alert === 1);
+  const nextSecurityRiskGuard = security_risk_guard === undefined
+    ? existing.security_risk_guard
+    : toBoolInt(security_risk_guard, existing.security_risk_guard === 1);
   const now = new Date().toISOString();
 
   db.prepare(
     `UPDATE app_settings
-     SET duo_enabled = ?, notifications_enabled = ?, quiet_hours_start = ?, quiet_hours_end = ?, updated_at = ?
+     SET duo_enabled = ?, notifications_enabled = ?, quiet_hours_start = ?, quiet_hours_end = ?,
+         relation_checkin = ?, relation_reminder = ?, relation_coop_hint = ?,
+         security_login_alert = ?, security_risk_guard = ?, updated_at = ?
      WHERE owner = ?`,
   ).run(
     nextDuoEnabled,
     nextNotificationsEnabled,
     quiet_hours_start ?? existing.quiet_hours_start,
     quiet_hours_end ?? existing.quiet_hours_end,
+    nextRelationCheckin,
+    nextRelationReminder,
+    nextRelationCoopHint,
+    nextSecurityLoginAlert,
+    nextSecurityRiskGuard,
     now,
     owner,
   );
 
   const settings = db.prepare('SELECT * FROM app_settings WHERE owner = ?').get(owner);
   res.json({ code: 200, message: '更新设置成功', result: settings });
+});
+
+app.get('/feedback', (req, res) => {
+  const owner = req.query.owner || OWNER_ME;
+  const limit = Math.min(
+    Math.max(Number(req.query.limit) || 20, 1),
+    APP_CONFIG.feedback.listLimitMax,
+  );
+  if (!validateOwner(owner)) {
+    return res.status(400).json({ code: 400, message: 'owner 参数非法', result: null });
+  }
+  const list = db
+    .prepare(
+      'SELECT id, owner, category, title, detail, contact, created_at FROM feedback_items WHERE owner = ? ORDER BY id DESC LIMIT ?',
+    )
+    .all(owner, limit);
+  res.json({ code: 200, message: '获取反馈成功', result: { list } });
+});
+
+app.post('/feedback', (req, res) => {
+  const { owner = OWNER_ME, category, title, detail, contact = null } = req.body || {};
+  if (!validateOwner(owner)) {
+    return res.status(400).json({ code: 400, message: 'owner 参数非法', result: null });
+  }
+  const safeCategory = String(category || '').trim();
+  const safeTitle = String(title || '').trim();
+  const safeDetail = String(detail || '').trim();
+  const safeContact = contact ? String(contact).trim() : null;
+
+  if (!safeCategory) {
+    return res.status(400).json({ code: 400, message: 'category 不能为空', result: null });
+  }
+  if (!safeTitle) {
+    return res.status(400).json({ code: 400, message: 'title 不能为空', result: null });
+  }
+  if (!safeDetail) {
+    return res.status(400).json({ code: 400, message: 'detail 不能为空', result: null });
+  }
+  if (safeCategory.length > APP_CONFIG.feedback.categoryMax) {
+    return res
+      .status(400)
+      .json({ code: 400, message: 'category 超出长度限制', result: null });
+  }
+  if (safeTitle.length > APP_CONFIG.feedback.titleMax) {
+    return res
+      .status(400)
+      .json({ code: 400, message: 'title 超出长度限制', result: null });
+  }
+  if (safeDetail.length > APP_CONFIG.feedback.detailMax) {
+    return res
+      .status(400)
+      .json({ code: 400, message: 'detail 超出长度限制', result: null });
+  }
+  if (safeContact && safeContact.length > APP_CONFIG.feedback.contactMax) {
+    return res
+      .status(400)
+      .json({ code: 400, message: 'contact 超出长度限制', result: null });
+  }
+
+  const now = new Date().toISOString();
+  const info = db
+    .prepare(
+      `INSERT INTO feedback_items(owner, category, title, detail, contact, created_at)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+    )
+    .run(owner, safeCategory, safeTitle, safeDetail, safeContact, now);
+  const row = db
+    .prepare(
+      'SELECT id, owner, category, title, detail, contact, created_at FROM feedback_items WHERE id = ?',
+    )
+    .get(info.lastInsertRowid);
+  res.json({ code: 200, message: '提交反馈成功', result: row });
 });
 
 app.get('/notifications', (req, res) => {
@@ -3191,6 +3337,7 @@ app.get('/export/snapshot', (req, res) => {
     ledger: db.prepare('SELECT * FROM point_ledger ORDER BY id DESC').all(),
     products: db.prepare('SELECT * FROM products ORDER BY id DESC').all(),
     owned_items: db.prepare('SELECT * FROM owned_items ORDER BY id DESC').all(),
+    feedback_items: db.prepare('SELECT * FROM feedback_items ORDER BY id DESC').all(),
     profiles: db.prepare('SELECT * FROM profiles ORDER BY owner ASC').all(),
     settings: db.prepare('SELECT * FROM app_settings ORDER BY owner ASC').all(),
     notifications: db.prepare('SELECT * FROM notifications ORDER BY id DESC').all(),
