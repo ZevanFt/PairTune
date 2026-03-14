@@ -5,12 +5,32 @@ export const zhCN = {
   },
   sidebar: {
     brandTop: 'PAIR',
-    brandMain: 'Tune Admin'
+    brandMain: 'Tune Admin',
+    group: {
+      core: '概览',
+      ops: '运营',
+      access: '权限',
+      quick: '快捷入口',
+      recent: '最近访问'
+    }
   },
   topbar: {
     title: '运营控制台',
     tag: 'Admin Console',
-    logout: '退出登录'
+    logout: '退出登录',
+    breadcrumbLabel: '路径',
+    breadcrumb: '控制台 / 仪表盘',
+    tabOverview: '概览',
+    tabInsights: '洞察',
+    lastLogin: '最近登录',
+    roleAdmin: '管理员',
+    roleStaff: '运营成员',
+    scrollLeft: '向左滚动',
+    scrollRight: '向右滚动',
+    timeAbsolute: '绝对时间',
+    timeRelative: '相对时间',
+    timeToggleHint: '点击切换时间显示',
+    tabClose: '关闭标签'
   },
   nav: {
     dashboard: '仪表盘',
@@ -19,6 +39,7 @@ export const zhCN = {
     tasks: '任务运营',
     points: '积分运营',
     store: '商城运营',
+    feedback: '反馈管理',
     security: '安全审计',
     roles: '角色权限',
     settings: '系统设置'
@@ -180,6 +201,29 @@ export const zhCN = {
     exchangeCount: '兑换次数',
     pointsSpent: '消耗积分',
     stock: '库存'
+  },
+  feedback: {
+    subtitle: '用户反馈与问题跟踪',
+    loadFail: '加载反馈数据失败',
+    total: '反馈总量',
+    topCategory: '高频类型',
+    owner: '账号',
+    ownerAll: '全部账号',
+    ownerMe: '我',
+    ownerPartner: '搭档',
+    category: '类型',
+    categoryAll: '全部类型',
+    title: '标题',
+    detail: '描述',
+    contact: '联系方式',
+    time: '时间',
+    action: '操作',
+    copy: '复制',
+    copied: '已复制反馈内容',
+    copyFail: '复制失败',
+    searchPlaceholder: '搜索标题/描述',
+    filterApply: '应用筛选',
+    empty: '暂无反馈'
   },
   security: {
     subtitle: '登录失败与安全事件',

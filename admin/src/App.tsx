@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
 
 import { fetchBootstrapStatus } from './services/admin';
 import { t } from './i18n';
@@ -14,8 +14,11 @@ export function App() {
   const [checking, setChecking] = useState(false);
   const [elapsed, setElapsed] = useState(0);
 
-  const loadStatus = async () => {
-    if (checking) return;
+  const checkingRef = useRef(false);
+
+  const loadStatus = useCallback(async () => {
+    if (checkingRef.current) return;
+    checkingRef.current = true;
     setChecking(true);
     setStatusError(false);
     try {
@@ -25,12 +28,13 @@ export function App() {
       setStatusError(true);
       setInitialized(null);
     }
+    checkingRef.current = false;
     setChecking(false);
-  };
+  }, []);
 
   useEffect(() => {
     void loadStatus();
-  }, []);
+  }, [loadStatus]);
 
   useEffect(() => {
     if (initialized !== null || statusError) return undefined;

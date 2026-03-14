@@ -602,6 +602,7 @@ CREATE TABLE IF NOT EXISTS auth_user_roles (
   db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_auth_roles_name_unique ON auth_roles(name);');
   db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_auth_permissions_code_unique ON auth_permissions(code);');
   db.exec('CREATE INDEX IF NOT EXISTS idx_feedback_items_owner ON feedback_items(owner);');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_feedback_items_created_at ON feedback_items(created_at);');
 
   const now = new Date().toISOString();
   db.prepare(
@@ -654,6 +655,7 @@ function ensureRbacDefaults() {
     { code: 'admin.roles.view', name: '查看角色权限' },
     { code: 'admin.roles.manage', name: '管理角色权限' },
     { code: 'admin.security.view', name: '查看安全审计' },
+    { code: 'admin.feedback.view', name: '查看反馈' },
     { code: 'admin.sessions.view', name: '查看会话' },
     { code: 'admin.tasks.view', name: '查看任务运营' },
     { code: 'admin.points.view', name: '查看积分运营' },
@@ -695,6 +697,7 @@ function ensureRbacDefaults() {
         'admin.users.view',
         'admin.roles.view',
         'admin.security.view',
+        'admin.feedback.view',
         'admin.sessions.view',
         'admin.tasks.view',
         'admin.points.view',
@@ -2561,6 +2564,87 @@ app.get('/admin/security/events', (req, res) => {
       failed,
       locked_users: lockedUsers,
       events,
+    },
+  });
+});
+
+app.get('/admin/feedback', (req, res) => {
+  const session = requirePermission(req, res, 'admin.feedback.view');
+  if (!session) return;
+  const days = parseRangeDays(req.query?.range);
+  const since = rangeStartIso(days);
+  const limit = Math.max(1, Math.min(200, Number(req.query?.limit || 50)));
+  const owner = String(req.query?.owner || '').trim();
+  const category = String(req.query?.category || '').trim();
+  const keyword = String(req.query?.q || '').trim();
+
+  if (owner && !validateOwner(owner)) {
+    return res.status(400).json({ code: 400, message: 'owner 参数非法', result: null });
+  }
+
+  const conditions = ['created_at >= ?'];
+  const params = [since];
+  if (owner) {
+    conditions.push('owner = ?');
+    params.push(owner);
+  }
+  if (category) {
+    conditions.push('category = ?');
+    params.push(category);
+  }
+  if (keyword) {
+    conditions.push('(title LIKE ? OR detail LIKE ?)');
+    const like = `%${keyword}%`;
+    params.push(like, like);
+  }
+
+  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+  const listSql = `SELECT id, owner, category, title, detail, contact, created_at
+                   FROM feedback_items ${where}
+                   ORDER BY id DESC LIMIT ?`;
+  const list = db.prepare(listSql).all(...params, limit);
+  const totalSql = `SELECT COUNT(1) AS count FROM feedback_items ${where}`;
+  const total = safeNumber(db.prepare(totalSql).get(...params).count);
+
+  res.json({
+    code: 200,
+    message: 'ok',
+    result: { list, total },
+  });
+});
+
+app.get('/admin/feedback/stats', (req, res) => {
+  const session = requirePermission(req, res, 'admin.feedback.view');
+  if (!session) return;
+  const days = parseRangeDays(req.query?.range);
+  const since = rangeStartIso(days);
+  const total = safeNumber(
+    db.prepare('SELECT COUNT(1) AS count FROM feedback_items WHERE created_at >= ?')
+      .get(since).count,
+  );
+  const categoryRows = db.prepare(
+    `SELECT category, COUNT(1) AS count
+     FROM feedback_items WHERE created_at >= ? GROUP BY category
+     ORDER BY count DESC`,
+  ).all(since);
+  const ownerRows = db.prepare(
+    `SELECT owner, COUNT(1) AS count
+     FROM feedback_items WHERE created_at >= ? GROUP BY owner`,
+  ).all(since);
+  res.json({
+    code: 200,
+    message: 'ok',
+    result: {
+      range: `${days}d`,
+      total,
+      by_category: categoryRows.map((row) => ({
+        category: row.category,
+        count: safeNumber(row.count),
+      })),
+      by_owner: ownerRows.map((row) => ({
+        owner: row.owner,
+        count: safeNumber(row.count),
+      })),
     },
   });
 });

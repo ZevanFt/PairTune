@@ -369,6 +369,10 @@
   - 说明：邀请码统计（创建/使用与状态分布）
 - `GET /admin/security/events?range=7d|30d|90d&limit=50`
   - 说明：安全事件列表与失败统计
+- `GET /admin/feedback?range=7d|30d|90d&limit=50&owner=me|partner&category=?&q=?`
+  - 说明：反馈列表（支持范围与条件过滤）
+- `GET /admin/feedback/stats?range=7d|30d|90d`
+  - 说明：反馈统计（按类型与账号汇总）
 - `GET /admin/settings`
   - 说明：系统设置与运行信息（短信/邮件 Provider、环境、时间）
 

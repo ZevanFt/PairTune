@@ -118,6 +118,23 @@ export interface SecurityStats {
   events: SecurityEvent[];
 }
 
+export interface FeedbackItem {
+  id: number;
+  owner: string;
+  category: string;
+  title: string;
+  detail: string;
+  contact?: string | null;
+  created_at: string;
+}
+
+export interface FeedbackStats {
+  range: string;
+  total: number;
+  by_category: Array<{ category: string; count: number }>;
+  by_owner: Array<{ owner: string; count: number }>;
+}
+
 export interface AdminSettings {
   sms_provider: string;
   email_provider: string;
@@ -222,6 +239,21 @@ export async function fetchInviteStats(range: string) {
 export async function fetchSecurityEvents(range: string, limit = 50) {
   const { data } = await api.get('/admin/security/events', { params: { range, limit } });
   return data.result as SecurityStats;
+}
+
+export async function fetchFeedback(range: string, params: {
+  owner?: string;
+  category?: string;
+  q?: string;
+  limit?: number;
+}) {
+  const { data } = await api.get('/admin/feedback', { params: { range, ...params } });
+  return data.result as { list: FeedbackItem[]; total: number };
+}
+
+export async function fetchFeedbackStats(range: string) {
+  const { data } = await api.get('/admin/feedback/stats', { params: { range } });
+  return data.result as FeedbackStats;
 }
 
 export async function fetchAdminSettings() {
