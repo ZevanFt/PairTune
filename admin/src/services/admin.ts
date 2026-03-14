@@ -125,6 +125,10 @@ export interface FeedbackItem {
   title: string;
   detail: string;
   contact?: string | null;
+  status: string;
+  assignee?: string | null;
+  note?: string | null;
+  updated_at: string;
   created_at: string;
 }
 
@@ -138,8 +142,16 @@ export interface FeedbackStats {
 export interface AdminSettings {
   sms_provider: string;
   email_provider: string;
+  site_name: string;
+  support_email?: string | null;
+  support_phone?: string | null;
+  announcement?: string | null;
+  maintenance_mode: number;
+  settings_updated_at?: string | null;
   admin_account?: string | null;
   admin_display_name?: string | null;
+  runtime_sms_provider: string;
+  runtime_email_provider: string;
   server_time: string;
   db_path: string;
   node_env: string;
@@ -244,6 +256,7 @@ export async function fetchSecurityEvents(range: string, limit = 50) {
 export async function fetchFeedback(range: string, params: {
   owner?: string;
   category?: string;
+  status?: string;
   q?: string;
   limit?: number;
 }) {
@@ -256,9 +269,51 @@ export async function fetchFeedbackStats(range: string) {
   return data.result as FeedbackStats;
 }
 
+export async function updateFeedback(id: number, payload: {
+  status?: string;
+  assignee?: string | null;
+  note?: string | null;
+}) {
+  const { data } = await api.patch(`/admin/feedback/${id}`, payload);
+  return data.result as FeedbackItem;
+}
+
+export async function exportFeedback(range: string, params: {
+  owner?: string;
+  category?: string;
+  status?: string;
+  q?: string;
+  limit?: number;
+}) {
+  const { data } = await api.get('/admin/feedback/export', { params: { range, ...params } });
+  return data.result as { list: FeedbackItem[] };
+}
+
 export async function fetchAdminSettings() {
   const { data } = await api.get('/admin/settings');
   return data.result as AdminSettings;
+}
+
+export async function updateAdminSettings(payload: {
+  sms_provider?: string;
+  email_provider?: string;
+  site_name?: string;
+  support_email?: string | null;
+  support_phone?: string | null;
+  announcement?: string | null;
+  maintenance_mode?: number | boolean;
+}) {
+  const { data } = await api.put('/admin/settings', payload);
+  return data.result as {
+    site_name: string;
+    support_email?: string | null;
+    support_phone?: string | null;
+    announcement?: string | null;
+    maintenance_mode: number;
+    sms_provider: string;
+    email_provider: string;
+    updated_at: string;
+  };
 }
 
 export async function fetchBootstrapStatus() {

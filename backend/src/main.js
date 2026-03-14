@@ -181,6 +181,10 @@ function safeNumber(value) {
   return Number.isFinite(num) ? num : 0;
 }
 
+function safeText(value) {
+  return String(value ?? '').trim();
+}
+
 function getClientKey(req) {
   const ip = String(req.headers['x-forwarded-for'] || req.ip || 'unknown').split(',')[0].trim();
   const deviceId = String(req.headers['x-device-id'] || '').trim().slice(0, 64);
@@ -237,6 +241,36 @@ function writeAuthEvent({ action, phone = null, email = null, clientKey = null, 
     `INSERT INTO auth_security_events(action, phone, email, client_key, success, detail, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
   ).run(action, phone, email, clientKey, success ? 1 : 0, detail, nowIso());
+}
+
+function getSystemSettings() {
+  const row = db.prepare(
+    `SELECT id, site_name, support_email, support_phone, announcement, maintenance_mode,
+            sms_provider, email_provider, updated_at
+     FROM system_settings WHERE id = 1`,
+  ).get();
+  if (row) return row;
+  const now = nowIso();
+  const defaults = APP_CONFIG.systemSettings?.defaults || {};
+  db.prepare(
+    `INSERT OR IGNORE INTO system_settings(
+       id, site_name, support_email, support_phone, announcement, maintenance_mode, sms_provider, email_provider, updated_at
+     ) VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    safeText(defaults.siteName || ''),
+    safeText(defaults.supportEmail || '') || null,
+    safeText(defaults.supportPhone || '') || null,
+    safeText(defaults.announcement || '') || null,
+    toBoolInt(defaults.maintenanceMode ?? 0),
+    safeText(defaults.smsProvider || 'mock'),
+    safeText(defaults.emailProvider || 'mock'),
+    now,
+  );
+  return db.prepare(
+    `SELECT id, site_name, support_email, support_phone, announcement, maintenance_mode,
+            sms_provider, email_provider, updated_at
+     FROM system_settings WHERE id = 1`,
+  ).get();
 }
 
 function getUserRoles(userId) {
@@ -396,6 +430,18 @@ CREATE TABLE IF NOT EXISTS app_settings (
   updated_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS system_settings (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  site_name TEXT NOT NULL,
+  support_email TEXT,
+  support_phone TEXT,
+  announcement TEXT,
+  maintenance_mode INTEGER NOT NULL DEFAULT 0,
+  sms_provider TEXT NOT NULL,
+  email_provider TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS notifications (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   owner TEXT NOT NULL,
@@ -413,6 +459,10 @@ CREATE TABLE IF NOT EXISTS feedback_items (
   title TEXT NOT NULL,
   detail TEXT NOT NULL,
   contact TEXT,
+  status TEXT NOT NULL DEFAULT 'new',
+  assignee TEXT,
+  note TEXT,
+  updated_at TEXT NOT NULL,
   created_at TEXT NOT NULL
 );
 
@@ -598,11 +648,60 @@ CREATE TABLE IF NOT EXISTS auth_user_roles (
     db.exec('ALTER TABLE app_settings ADD COLUMN security_risk_guard INTEGER NOT NULL DEFAULT 1;');
   }
 
+  const systemColumns = db.prepare("PRAGMA table_info('system_settings')").all();
+  const hasSiteName = systemColumns.some((col) => col.name === 'site_name');
+  const hasSupportEmail = systemColumns.some((col) => col.name === 'support_email');
+  const hasSupportPhone = systemColumns.some((col) => col.name === 'support_phone');
+  const hasAnnouncement = systemColumns.some((col) => col.name === 'announcement');
+  const hasMaintenanceMode = systemColumns.some((col) => col.name === 'maintenance_mode');
+  const hasSmsProvider = systemColumns.some((col) => col.name === 'sms_provider');
+  const hasEmailProvider = systemColumns.some((col) => col.name === 'email_provider');
+  if (!hasSiteName) {
+    db.exec("ALTER TABLE system_settings ADD COLUMN site_name TEXT NOT NULL DEFAULT '';");
+  }
+  if (!hasSupportEmail) {
+    db.exec('ALTER TABLE system_settings ADD COLUMN support_email TEXT;');
+  }
+  if (!hasSupportPhone) {
+    db.exec('ALTER TABLE system_settings ADD COLUMN support_phone TEXT;');
+  }
+  if (!hasAnnouncement) {
+    db.exec('ALTER TABLE system_settings ADD COLUMN announcement TEXT;');
+  }
+  if (!hasMaintenanceMode) {
+    db.exec('ALTER TABLE system_settings ADD COLUMN maintenance_mode INTEGER NOT NULL DEFAULT 0;');
+  }
+  if (!hasSmsProvider) {
+    db.exec("ALTER TABLE system_settings ADD COLUMN sms_provider TEXT NOT NULL DEFAULT '';");
+  }
+  if (!hasEmailProvider) {
+    db.exec("ALTER TABLE system_settings ADD COLUMN email_provider TEXT NOT NULL DEFAULT '';");
+  }
+
+  const feedbackColumns = db.prepare("PRAGMA table_info('feedback_items')").all();
+  const hasFeedbackStatus = feedbackColumns.some((col) => col.name === 'status');
+  const hasFeedbackAssignee = feedbackColumns.some((col) => col.name === 'assignee');
+  const hasFeedbackNote = feedbackColumns.some((col) => col.name === 'note');
+  const hasFeedbackUpdatedAt = feedbackColumns.some((col) => col.name === 'updated_at');
+  if (!hasFeedbackStatus) {
+    db.exec("ALTER TABLE feedback_items ADD COLUMN status TEXT NOT NULL DEFAULT 'new';");
+  }
+  if (!hasFeedbackAssignee) {
+    db.exec('ALTER TABLE feedback_items ADD COLUMN assignee TEXT;');
+  }
+  if (!hasFeedbackNote) {
+    db.exec('ALTER TABLE feedback_items ADD COLUMN note TEXT;');
+  }
+  if (!hasFeedbackUpdatedAt) {
+    db.exec(`ALTER TABLE feedback_items ADD COLUMN updated_at TEXT NOT NULL DEFAULT '${nowIso()}';`);
+  }
+
   db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_auth_invite_codes_code_unique ON auth_invite_codes(code);');
   db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_auth_roles_name_unique ON auth_roles(name);');
   db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_auth_permissions_code_unique ON auth_permissions(code);');
   db.exec('CREATE INDEX IF NOT EXISTS idx_feedback_items_owner ON feedback_items(owner);');
   db.exec('CREATE INDEX IF NOT EXISTS idx_feedback_items_created_at ON feedback_items(created_at);');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_feedback_items_status ON feedback_items(status);');
 
   const now = new Date().toISOString();
   db.prepare(
@@ -629,6 +728,22 @@ CREATE TABLE IF NOT EXISTS auth_user_roles (
        relation_checkin, relation_reminder, relation_coop_hint, security_login_alert, security_risk_guard, updated_at
      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(OWNER_PARTNER, 0, 1, '22:00', '08:00', 1, 1, 1, 1, 1, now);
+
+  const systemDefaults = APP_CONFIG.systemSettings?.defaults || {};
+  db.prepare(
+    `INSERT OR IGNORE INTO system_settings(
+       id, site_name, support_email, support_phone, announcement, maintenance_mode, sms_provider, email_provider, updated_at
+     ) VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    safeText(systemDefaults.siteName || ''),
+    safeText(systemDefaults.supportEmail || '') || null,
+    safeText(systemDefaults.supportPhone || '') || null,
+    safeText(systemDefaults.announcement || '') || null,
+    toBoolInt(systemDefaults.maintenanceMode ?? 0),
+    safeText(systemDefaults.smsProvider || 'mock'),
+    safeText(systemDefaults.emailProvider || 'mock'),
+    now,
+  );
 
   const sampleCount = db.prepare('SELECT COUNT(1) AS count FROM notifications').get().count;
   if (sampleCount === 0) {
@@ -661,6 +776,7 @@ function ensureRbacDefaults() {
     { code: 'admin.points.view', name: '查看积分运营' },
     { code: 'admin.store.view', name: '查看商城运营' },
     { code: 'admin.settings.view', name: '查看系统设置' },
+    { code: 'admin.settings.manage', name: '管理系统设置' },
   ];
 
   const insertPerm = db.prepare(
@@ -1468,13 +1584,15 @@ app.post('/feedback', (req, res) => {
   const now = new Date().toISOString();
   const info = db
     .prepare(
-      `INSERT INTO feedback_items(owner, category, title, detail, contact, created_at)
-       VALUES (?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO feedback_items(
+         owner, category, title, detail, contact, status, assignee, note, updated_at, created_at
+       ) VALUES (?, ?, ?, ?, ?, 'new', NULL, NULL, ?, ?)`,
     )
-    .run(owner, safeCategory, safeTitle, safeDetail, safeContact, now);
+    .run(owner, safeCategory, safeTitle, safeDetail, safeContact, now, now);
   const row = db
     .prepare(
-      'SELECT id, owner, category, title, detail, contact, created_at FROM feedback_items WHERE id = ?',
+      `SELECT id, owner, category, title, detail, contact, status, assignee, note, updated_at, created_at
+       FROM feedback_items WHERE id = ?`,
     )
     .get(info.lastInsertRowid);
   res.json({ code: 200, message: '提交反馈成功', result: row });
@@ -2576,6 +2694,7 @@ app.get('/admin/feedback', (req, res) => {
   const limit = Math.max(1, Math.min(200, Number(req.query?.limit || 50)));
   const owner = String(req.query?.owner || '').trim();
   const category = String(req.query?.category || '').trim();
+  const status = String(req.query?.status || '').trim();
   const keyword = String(req.query?.q || '').trim();
 
   if (owner && !validateOwner(owner)) {
@@ -2592,6 +2711,10 @@ app.get('/admin/feedback', (req, res) => {
     conditions.push('category = ?');
     params.push(category);
   }
+  if (status) {
+    conditions.push('status = ?');
+    params.push(status);
+  }
   if (keyword) {
     conditions.push('(title LIKE ? OR detail LIKE ?)');
     const like = `%${keyword}%`;
@@ -2599,7 +2722,7 @@ app.get('/admin/feedback', (req, res) => {
   }
 
   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
-  const listSql = `SELECT id, owner, category, title, detail, contact, created_at
+  const listSql = `SELECT id, owner, category, title, detail, contact, status, assignee, note, updated_at, created_at
                    FROM feedback_items ${where}
                    ORDER BY id DESC LIMIT ?`;
   const list = db.prepare(listSql).all(...params, limit);
@@ -2649,25 +2772,190 @@ app.get('/admin/feedback/stats', (req, res) => {
   });
 });
 
+app.patch('/admin/feedback/:id', (req, res) => {
+  const session = requirePermission(req, res, 'admin.feedback.view');
+  if (!session) return;
+  const id = Number(req.params.id);
+  if (!id) {
+    return res.status(400).json({ code: 400, message: 'id 参数非法', result: null });
+  }
+  const { status, assignee, note } = req.body || {};
+  const row = db.prepare('SELECT * FROM feedback_items WHERE id = ?').get(id);
+  if (!row) {
+    return res.status(404).json({ code: 404, message: '反馈不存在', result: null });
+  }
+  const nextStatus = String(status ?? row.status).trim();
+  if (!['new', 'triaged', 'resolved'].includes(nextStatus)) {
+    return res.status(400).json({ code: 400, message: 'status 参数非法', result: null });
+  }
+  const nextAssignee = assignee === undefined ? row.assignee : String(assignee || '').trim() || null;
+  const nextNote = note === undefined ? row.note : String(note || '').trim() || null;
+  const now = nowIso();
+  db.prepare(
+    `UPDATE feedback_items
+     SET status = ?, assignee = ?, note = ?, updated_at = ?
+     WHERE id = ?`,
+  ).run(nextStatus, nextAssignee, nextNote, now, id);
+  const updated = db.prepare(
+    `SELECT id, owner, category, title, detail, contact, status, assignee, note, updated_at, created_at
+     FROM feedback_items WHERE id = ?`,
+  ).get(id);
+  res.json({ code: 200, message: '反馈已更新', result: updated });
+});
+
+app.get('/admin/feedback/export', (req, res) => {
+  const session = requirePermission(req, res, 'admin.feedback.view');
+  if (!session) return;
+  const days = parseRangeDays(req.query?.range);
+  const since = rangeStartIso(days);
+  const limit = Math.max(1, Math.min(5000, Number(req.query?.limit || 1000)));
+  const owner = String(req.query?.owner || '').trim();
+  const category = String(req.query?.category || '').trim();
+  const status = String(req.query?.status || '').trim();
+  const keyword = String(req.query?.q || '').trim();
+
+  if (owner && !validateOwner(owner)) {
+    return res.status(400).json({ code: 400, message: 'owner 参数非法', result: null });
+  }
+
+  const conditions = ['created_at >= ?'];
+  const params = [since];
+  if (owner) {
+    conditions.push('owner = ?');
+    params.push(owner);
+  }
+  if (category) {
+    conditions.push('category = ?');
+    params.push(category);
+  }
+  if (status) {
+    conditions.push('status = ?');
+    params.push(status);
+  }
+  if (keyword) {
+    conditions.push('(title LIKE ? OR detail LIKE ?)');
+    const like = `%${keyword}%`;
+    params.push(like, like);
+  }
+
+  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+  const listSql = `SELECT id, owner, category, title, detail, contact, status, assignee, note, updated_at, created_at
+                   FROM feedback_items ${where}
+                   ORDER BY id DESC LIMIT ?`;
+  const list = db.prepare(listSql).all(...params, limit);
+  res.json({ code: 200, message: 'ok', result: { list } });
+});
+
 app.get('/admin/settings', (req, res) => {
   const session = requirePermission(req, res, 'admin.settings.view');
   if (!session) return;
   const adminUser = db.prepare(
     `SELECT account, display_name FROM auth_users WHERE role = 'admin' ORDER BY id ASC LIMIT 1`,
   ).get();
+  const system = getSystemSettings();
   res.json({
     code: 200,
     message: 'ok',
     result: {
-      sms_provider: String(process.env.SMS_PROVIDER || 'mock'),
-      email_provider: String(process.env.EMAIL_PROVIDER || 'mock'),
+      sms_provider: system.sms_provider,
+      email_provider: system.email_provider,
+      site_name: system.site_name,
+      support_email: system.support_email,
+      support_phone: system.support_phone,
+      announcement: system.announcement,
+      maintenance_mode: system.maintenance_mode,
+      settings_updated_at: system.updated_at,
       admin_account: adminUser?.account || null,
       admin_display_name: adminUser?.display_name || null,
+      runtime_sms_provider: String(process.env.SMS_PROVIDER || 'mock'),
+      runtime_email_provider: String(process.env.EMAIL_PROVIDER || 'mock'),
       server_time: nowIso(),
       db_path: String(process.env.DB_PATH || 'default'),
       node_env: String(process.env.NODE_ENV || 'development'),
     },
   });
+});
+
+app.put('/admin/settings', (req, res) => {
+  const session = requirePermission(req, res, 'admin.settings.manage');
+  if (!session) return;
+  const payload = req.body || {};
+  const current = getSystemSettings();
+  if (!current) {
+    return res.status(500).json({ code: 500, message: '系统设置读取失败', result: null });
+  }
+
+  const limits = APP_CONFIG.systemSettings?.limits || {};
+  const providers = APP_CONFIG.systemSettings?.providers || {};
+
+  const nextSiteName = payload.site_name === undefined ? current.site_name : safeText(payload.site_name);
+  if (!nextSiteName) {
+    return res.status(400).json({ code: 400, message: 'site_name 不能为空', result: null });
+  }
+  if (limits.siteNameMax && nextSiteName.length > limits.siteNameMax) {
+    return res.status(400).json({ code: 400, message: 'site_name 超出长度限制', result: null });
+  }
+
+  const nextSupportEmailRaw = payload.support_email === undefined ? current.support_email : safeText(payload.support_email);
+  const nextSupportEmail = nextSupportEmailRaw ? nextSupportEmailRaw : null;
+  if (nextSupportEmail && limits.supportEmailMax && nextSupportEmail.length > limits.supportEmailMax) {
+    return res.status(400).json({ code: 400, message: 'support_email 超出长度限制', result: null });
+  }
+  if (nextSupportEmail && !isEmail(nextSupportEmail)) {
+    return res.status(400).json({ code: 400, message: 'support_email 格式不正确', result: null });
+  }
+
+  const nextSupportPhoneRaw = payload.support_phone === undefined ? current.support_phone : safeText(payload.support_phone);
+  const nextSupportPhone = nextSupportPhoneRaw ? nextSupportPhoneRaw : null;
+  if (nextSupportPhone && limits.supportPhoneMax && nextSupportPhone.length > limits.supportPhoneMax) {
+    return res.status(400).json({ code: 400, message: 'support_phone 超出长度限制', result: null });
+  }
+
+  const nextAnnouncementRaw = payload.announcement === undefined ? current.announcement : safeText(payload.announcement);
+  const nextAnnouncement = nextAnnouncementRaw ? nextAnnouncementRaw : null;
+  if (nextAnnouncement && limits.announcementMax && nextAnnouncement.length > limits.announcementMax) {
+    return res.status(400).json({ code: 400, message: 'announcement 超出长度限制', result: null });
+  }
+
+  const nextMaintenance = payload.maintenance_mode === undefined
+    ? toBoolInt(current.maintenance_mode)
+    : toBoolInt(payload.maintenance_mode);
+
+  const nextSmsProvider = payload.sms_provider === undefined
+    ? safeText(current.sms_provider)
+    : safeText(payload.sms_provider).toLowerCase();
+  const smsAllowed = Array.isArray(providers.sms) ? providers.sms : [];
+  if (nextSmsProvider && smsAllowed.length && !smsAllowed.includes(nextSmsProvider)) {
+    return res.status(400).json({ code: 400, message: 'sms_provider 不支持', result: null });
+  }
+
+  const nextEmailProvider = payload.email_provider === undefined
+    ? safeText(current.email_provider)
+    : safeText(payload.email_provider).toLowerCase();
+  const emailAllowed = Array.isArray(providers.email) ? providers.email : [];
+  if (nextEmailProvider && emailAllowed.length && !emailAllowed.includes(nextEmailProvider)) {
+    return res.status(400).json({ code: 400, message: 'email_provider 不支持', result: null });
+  }
+
+  const now = nowIso();
+  db.prepare(
+    `UPDATE system_settings
+     SET site_name = ?, support_email = ?, support_phone = ?, announcement = ?, maintenance_mode = ?,
+         sms_provider = ?, email_provider = ?, updated_at = ?
+     WHERE id = 1`,
+  ).run(
+    nextSiteName,
+    nextSupportEmail,
+    nextSupportPhone,
+    nextAnnouncement,
+    nextMaintenance,
+    nextSmsProvider,
+    nextEmailProvider,
+    now,
+  );
+  logEvent('admin_settings_updated', { user_id: session.user_id });
+  const updated = getSystemSettings();
+  res.json({ code: 200, message: '系统设置已更新', result: updated });
 });
 
 app.post('/auth/email/send-code', (req, res) => {
@@ -3424,6 +3712,7 @@ app.get('/export/snapshot', (req, res) => {
     feedback_items: db.prepare('SELECT * FROM feedback_items ORDER BY id DESC').all(),
     profiles: db.prepare('SELECT * FROM profiles ORDER BY owner ASC').all(),
     settings: db.prepare('SELECT * FROM app_settings ORDER BY owner ASC').all(),
+    system_settings: db.prepare('SELECT * FROM system_settings ORDER BY id ASC').all(),
     notifications: db.prepare('SELECT * FROM notifications ORDER BY id DESC').all(),
     auth_users: db.prepare('SELECT id, account, phone, email, wechat_openid, display_name, role, status, failed_login_count, locked_until, created_at, updated_at FROM auth_users ORDER BY id DESC').all(),
     auth_sessions: db.prepare('SELECT token, user_id, provider, owner_hint, expires_at, created_at, last_seen_at FROM auth_sessions ORDER BY created_at DESC').all(),
