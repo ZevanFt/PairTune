@@ -93,7 +93,7 @@ class _StoreOwnedRecordsPageState extends State<StoreOwnedRecordsPage> {
       child: Row(
         children: [
           const Icon(Icons.history_rounded, color: AppTheme.primary, size: 18),
-          AppSpace.w8,
+          AppSpace.w8w,
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

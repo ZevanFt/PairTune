@@ -118,7 +118,7 @@ class _StoreMyProductsPageState extends State<StoreMyProductsPage> {
                       child: const Text('取消'),
                     ),
                   ),
-                  AppSpace.w10,
+                  AppSpace.w10w,
                   Expanded(
                     child: FilledButton(
                       onPressed: () => Navigator.pop(context, true),

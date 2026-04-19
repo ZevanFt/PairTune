@@ -38,7 +38,7 @@ class SectionHeader extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: AppText.sectionTitleStyle()),
+                Text(title, style: AppText.sectionTitle),
                 if (subtitle != null) ...[
                   const SizedBox(height: 2),
                   Text(subtitle!, style: AppText.footnote.copyWith(color: AppTheme.textMuted)),
