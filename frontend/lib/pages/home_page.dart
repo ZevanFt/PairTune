@@ -415,39 +415,89 @@ class _HeroCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF1A2B4F), Color(0xFF314772), Color(0xFF3C5484)],
+        gradient: LinearGradient(
+          colors: AppTheme.heroGradient,
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(AppTheme.radiusXl),
+        boxShadow: AppTheme.shadowLg,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // 标签
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(6),
+              color: Colors.white.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(AppTheme.radiusSm),
             ),
-            child: const Text('TODAY FOCUS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.white70, letterSpacing: 1.2)),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            !duoEnabled ? '今天把关键任务推进一步' : (owner == 'me' ? '我今天要推进的重点' : '搭档今天的重点事项'),
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Colors.white, height: 1.3),
+            child: const Text(
+              'TODAY FOCUS',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+                letterSpacing: 1.5,
+              ),
+            ),
           ),
           const SizedBox(height: 16),
+          // 标题
+          Text(
+            !duoEnabled ? '今天把关键任务推进一步' : (owner == 'me' ? '我今天要推进的重点' : '搭档今天的重点事项'),
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+              height: 1.3,
+            ),
+          ),
+          const SizedBox(height: 20),
+          // 统计数据
           Row(
             children: [
-              _metricChip(Icons.bolt_rounded, '进行中', '$activeCount'),
-              const SizedBox(width: 16),
-              _metricChip(Icons.check_circle_rounded, '已完成', '$doneCount'),
+              _buildStatItem(Icons.play_arrow_rounded, '进行中', activeCount),
+              const SizedBox(width: 24),
+              _buildStatItem(Icons.check_circle_rounded, '已完成', doneCount),
               const Spacer(),
-              Text('完成率 $completionRate%', style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600)),
+              // 完成率圆环
+              Column(
+                children: [
+                  SizedBox(
+                    width: 48,
+                    height: 48,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        CircularProgressIndicator(
+                          value: completionRate / 100,
+                          strokeWidth: 4,
+                          backgroundColor: Colors.white.withValues(alpha: 0.2),
+                          valueColor: const AlwaysStoppedAnimation(Colors.white),
+                        ),
+                        Text(
+                          '$completionRate',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    '完成率',
+                    style: TextStyle(color: Colors.white70, fontSize: 10),
+                  ),
+                ],
+              ),
             ],
           ),
         ],
@@ -455,21 +505,50 @@ class _HeroCard extends StatelessWidget {
     );
   }
 
-  Widget _metricChip(IconData icon, String label, String value) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
+  Widget _buildStatItem(IconData icon, String label, int count) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, color: Colors.white70, size: 16),
-        const SizedBox(width: 4),
-        Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 16)),
-        const SizedBox(width: 4),
-        Text(label, style: const TextStyle(color: Colors.white60, fontSize: 12)),
+        Row(
+          children: [
+            Icon(icon, color: Colors.white70, size: 18),
+            const SizedBox(width: 6),
+            Text(
+              '$count',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 28,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          style: const TextStyle(color: Colors.white60, fontSize: 12),
+        ),
       ],
     );
   }
 }
 
 // ─── Quadrant Grid ─────────────────────────────────────────────────────────
+
+class _QuadrantData {
+  const _QuadrantData({
+    required this.q,
+    required this.icon,
+    required this.color,
+    required this.label,
+    required this.desc,
+  });
+  final TaskQuadrant q;
+  final IconData icon;
+  final Color color;
+  final String label;
+  final String desc;
+}
 
 class _QuadrantGrid extends StatelessWidget {
   const _QuadrantGrid({required this.tasks, required this.onTap});
@@ -479,52 +558,132 @@ class _QuadrantGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 使用新的四象限色彩
     final quadrants = [
-      (q: TaskQuadrant.importantUrgent, icon: Icons.local_fire_department_rounded, accent: const Color(0xFF0071E3)),
-      (q: TaskQuadrant.importantNotUrgent, icon: Icons.lightbulb_rounded, accent: const Color(0xFF5856D6)),
-      (q: TaskQuadrant.notImportantUrgent, icon: Icons.flash_on_rounded, accent: const Color(0xFFFF9500)),
-      (q: TaskQuadrant.notImportantNotUrgent, icon: Icons.spa_rounded, accent: const Color(0xFF34C759)),
+      _QuadrantData(
+        q: TaskQuadrant.importantUrgent,
+        icon: Icons.local_fire_department_rounded,
+        color: AppTheme.urgentImportant,
+        label: '紧急重要',
+        desc: '立即执行',
+      ),
+      _QuadrantData(
+        q: TaskQuadrant.importantNotUrgent,
+        icon: Icons.lightbulb_rounded,
+        color: AppTheme.importantNotUrgent,
+        label: '重要不紧急',
+        desc: '规划执行',
+      ),
+      _QuadrantData(
+        q: TaskQuadrant.notImportantUrgent,
+        icon: Icons.flash_on_rounded,
+        color: AppTheme.urgentNotImportant,
+        label: '紧急不重要',
+        desc: '委托处理',
+      ),
+      _QuadrantData(
+        q: TaskQuadrant.notImportantNotUrgent,
+        icon: Icons.spa_rounded,
+        color: AppTheme.notUrgentNotImportant,
+        label: '不紧急不重要',
+        desc: '稍后处理',
+      ),
     ];
 
     return GridView.count(
       crossAxisCount: 2,
-      crossAxisSpacing: 12,
-      mainAxisSpacing: 12,
+      crossAxisSpacing: AppSpace.md,
+      mainAxisSpacing: AppSpace.md,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      childAspectRatio: 1.3,
-      children: quadrants.map((item) => _quadrantCard(item.q, item.icon, item.accent)).toList(),
+      childAspectRatio: 1.1,
+      children: quadrants.map((item) => _buildQuadrantCard(item)).toList(),
     );
   }
 
   int _count(TaskQuadrant q) => tasks.where((t) => t.quadrant == q && !t.isDone).length;
 
-  Widget _quadrantCard(TaskQuadrant q, IconData icon, Color accent) {
-    final count = _count(q);
-    return InkWell(
-      borderRadius: BorderRadius.circular(AppTheme.radiusLg),
-      onTap: () => onTap(q),
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: accent.withValues(alpha: 0.06),
-          borderRadius: BorderRadius.circular(AppTheme.radiusLg),
-          border: Border.all(color: accent.withValues(alpha: 0.2)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(children: [
-              Icon(icon, size: 18, color: accent),
-              const SizedBox(width: 6),
-              Expanded(child: Text(q.label, style: TextStyle(color: accent, fontWeight: FontWeight.w600, fontSize: 13))),
-            ]),
-            const Spacer(),
-            Text('$count', style: TextStyle(color: accent, fontSize: 28, fontWeight: FontWeight.w800, height: 1)),
-            Text('个待办', style: TextStyle(color: accent.withValues(alpha: 0.7), fontSize: 12)),
-            const SizedBox(height: 2),
-            Text('点击添加', style: TextStyle(color: accent.withValues(alpha: 0.5), fontSize: 11)),
-          ],
+  Widget _buildQuadrantCard(_QuadrantData item) {
+    final count = _count(item.q);
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+        onTap: () => onTap(item.q),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: item.color.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+            border: Border.all(
+              color: item.color.withValues(alpha: 0.25),
+              width: 1.5,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 图标和标签
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: item.color.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                    ),
+                    child: Icon(item.icon, size: 16, color: item.color),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      item.label,
+                      style: TextStyle(
+                        color: item.color,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const Spacer(),
+              // 数量
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    '$count',
+                    style: TextStyle(
+                      color: item.color,
+                      fontSize: 36,
+                      fontWeight: FontWeight.w800,
+                      height: 1,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Text(
+                      '个待办',
+                      style: TextStyle(
+                        color: item.color.withValues(alpha: 0.7),
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                item.desc,
+                style: TextStyle(
+                  color: item.color.withValues(alpha: 0.6),
+                  fontSize: 11,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -602,59 +761,131 @@ class _TaskTile extends StatelessWidget {
         ? '共同进度 我:${task.doneByMe ? "已完成" : "未完成"} / 搭档:${task.doneByPartner ? "已完成" : "未完成"}'
         : null;
 
+    // 根据象限获取颜色
+    final quadrantColor = _getQuadrantColor(task.quadrant);
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
+      margin: const EdgeInsets.only(bottom: AppSpace.sm),
       decoration: BoxDecoration(
         color: AppTheme.surface,
         borderRadius: BorderRadius.circular(AppTheme.radiusLg),
         border: Border.all(color: AppTheme.border),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), offset: const Offset(0, 1), blurRadius: 4)],
+        boxShadow: AppTheme.shadowSm,
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(AppTheme.radiusLg),
         onTap: onEdit,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+          padding: const EdgeInsets.all(16),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Checkbox(
-                value: task.taskType == TaskType.shared ? ownerDone : task.isDone,
-                onChanged: (v) { if (v != null) onToggle(v); },
+              // 复选框
+              Container(
+                margin: const EdgeInsets.only(top: 2),
+                child: Checkbox(
+                  value: task.taskType == TaskType.shared ? ownerDone : task.isDone,
+                  onChanged: (v) { if (v != null) onToggle(v); },
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppTheme.radiusXs),
+                  ),
+                ),
               ),
+              const SizedBox(width: 8),
+              // 内容
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(children: [
-                      Expanded(child: Text(task.title, style: TextStyle(
-                        fontWeight: FontWeight.w600, fontSize: 16,
-                        decoration: task.isDone ? TextDecoration.lineThrough : null,
-                        color: task.isDone ? AppTheme.textMuted : AppTheme.ink,
-                      ))),
-                      PopupMenuButton<String>(
-                        icon: const Icon(Icons.more_horiz_rounded, size: 20),
-                        onSelected: (v) { if (v == 'edit') onEdit(); else if (v == 'delete') onDelete(); },
-                        itemBuilder: (_) => [
-                          const PopupMenuItem(value: 'edit', child: ListTile(dense: true, leading: Icon(Icons.edit_outlined, size: 18), title: Text('编辑'))),
-                          const PopupMenuItem(value: 'delete', child: ListTile(dense: true, leading: Icon(Icons.delete_outline, size: 18), title: Text('删除'))),
-                        ],
-                      ),
-                    ]),
+                    // 标题行
+                    Row(
+                      children: [
+                        // 象限指示条
+                        Container(
+                          width: 3,
+                          height: 18,
+                          decoration: BoxDecoration(
+                            color: quadrantColor,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            task.title,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 16,
+                              decoration: task.isDone ? TextDecoration.lineThrough : null,
+                              color: task.isDone ? AppTheme.inkMuted : AppTheme.ink,
+                            ),
+                          ),
+                        ),
+                        // 更多按钮
+                        PopupMenuButton<String>(
+                          icon: Icon(Icons.more_horiz_rounded, size: 20, color: AppTheme.inkMuted),
+                          onSelected: (v) { if (v == 'edit') onEdit(); else if (v == 'delete') onDelete(); },
+                          itemBuilder: (_) => [
+                            PopupMenuItem(
+                              value: 'edit',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.edit_outlined, size: 18, color: AppTheme.primary),
+                                  const SizedBox(width: 12),
+                                  const Text('编辑'),
+                                ],
+                              ),
+                            ),
+                            PopupMenuItem(
+                              value: 'delete',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.delete_outline, size: 18, color: AppTheme.danger),
+                                  const SizedBox(width: 12),
+                                  const Text('删除'),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    // 备注
                     if (task.note != null && task.note!.trim().isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(task.note!.trim(), maxLines: 2, overflow: TextOverflow.ellipsis, style: AppText.bodyMuted()),
+                      const SizedBox(height: 8),
+                      Text(
+                        task.note!.trim(),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppText.bodyMuted(),
+                      ),
                     ],
-                    const SizedBox(height: 8),
-                    Wrap(spacing: 6, runSpacing: 6, children: [
-                      _chip(task.quadrant.label, AppTheme.softBlue),
-                      _chip(dueText, AppTheme.softAmber),
-                      _chip('积分 ${task.points}', AppTheme.softGreen),
-                      _chip(repeatText, AppTheme.softViolet),
-                    ]),
+                    const SizedBox(height: 12),
+                    // 标签
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      children: [
+                        _buildChip(task.quadrant.label, quadrantColor),
+                        _buildChip(dueText, AppTheme.warning),
+                        if (task.points > 0) _buildChip('+${task.points}积分', AppTheme.success),
+                        if (task.repeatType != TaskRepeatType.none) _buildChip(repeatText, AppTheme.primary),
+                      ],
+                    ),
+                    // 共同任务进度
                     if (sharedProgress != null) ...[
-                      const SizedBox(height: 6),
-                      Text(sharedProgress, style: AppText.bodyMuted()),
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: AppTheme.softPrimary,
+                          borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                        ),
+                        child: Text(
+                          sharedProgress,
+                          style: TextStyle(fontSize: 12, color: AppTheme.primary),
+                        ),
+                      ),
                     ],
                   ],
                 ),
@@ -666,11 +897,36 @@ class _TaskTile extends StatelessWidget {
     );
   }
 
-  Widget _chip(String text, Color bg) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-    decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(999)),
-    child: Text(text, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
-  );
+  Color _getQuadrantColor(TaskQuadrant q) {
+    switch (q) {
+      case TaskQuadrant.importantUrgent:
+        return AppTheme.urgentImportant;
+      case TaskQuadrant.importantNotUrgent:
+        return AppTheme.importantNotUrgent;
+      case TaskQuadrant.notImportantUrgent:
+        return AppTheme.urgentNotImportant;
+      case TaskQuadrant.notImportantNotUrgent:
+        return AppTheme.notUrgentNotImportant;
+    }
+  }
+
+  Widget _buildChip(String text, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: color,
+        ),
+      ),
+    );
+  }
 
   String _formatWeeklyCustom(List<int> weekdays) {
     if (weekdays.isEmpty) return '每周指定日期';
