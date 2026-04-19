@@ -414,90 +414,77 @@ class _HeroCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Linear风格 - 简洁卡片，无渐变
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: AppTheme.heroGradient,
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(AppTheme.radiusXl),
-        boxShadow: AppTheme.shadowLg,
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+        border: Border.all(color: AppTheme.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 标签
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-            ),
-            child: const Text(
-              'TODAY FOCUS',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-                letterSpacing: 1.5,
+          // 标题行
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryLight,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                ),
+                child: Text(
+                  'TODAY',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.primary,
+                    letterSpacing: 0.5,
+                  ),
+                ),
               ),
-            ),
+              const Spacer(),
+              // 完成率
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: completionRate >= 70
+                      ? AppTheme.successLight
+                      : completionRate >= 30
+                          ? AppTheme.warningLight
+                          : AppTheme.surfaceMuted,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                ),
+                child: Text(
+                  '$completionRate%',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: completionRate >= 70
+                        ? AppTheme.success
+                        : completionRate >= 30
+                            ? AppTheme.warning
+                            : AppTheme.inkSecondary,
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 16),
           // 标题
           Text(
             !duoEnabled ? '今天把关键任务推进一步' : (owner == 'me' ? '我今天要推进的重点' : '搭档今天的重点事项'),
-            style: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-              color: Colors.white,
-              height: 1.3,
-            ),
+            style: AppText.heading2,
           ),
           const SizedBox(height: 20),
-          // 统计数据
+          // 统计数据 - Linear风格简洁数字
           Row(
             children: [
-              _buildStatItem(Icons.play_arrow_rounded, '进行中', activeCount),
-              const SizedBox(width: 24),
-              _buildStatItem(Icons.check_circle_rounded, '已完成', doneCount),
-              const Spacer(),
-              // 完成率圆环
-              Column(
-                children: [
-                  SizedBox(
-                    width: 48,
-                    height: 48,
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        CircularProgressIndicator(
-                          value: completionRate / 100,
-                          strokeWidth: 4,
-                          backgroundColor: Colors.white.withValues(alpha: 0.2),
-                          valueColor: const AlwaysStoppedAnimation(Colors.white),
-                        ),
-                        Text(
-                          '$completionRate',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    '完成率',
-                    style: TextStyle(color: Colors.white70, fontSize: 10),
-                  ),
-                ],
-              ),
+              _buildStatItem(activeCount, '进行中', AppTheme.primary),
+              const SizedBox(width: 32),
+              _buildStatItem(doneCount, '已完成', AppTheme.success),
             ],
           ),
         ],
@@ -505,28 +492,23 @@ class _HeroCard extends StatelessWidget {
     );
   }
 
-  Widget _buildStatItem(IconData icon, String label, int count) {
+  Widget _buildStatItem(int count, String label, Color color) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Icon(icon, color: Colors.white70, size: 18),
-            const SizedBox(width: 6),
-            Text(
-              '$count',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 28,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ],
+        Text(
+          '$count',
+          style: TextStyle(
+            color: color,
+            fontSize: 32,
+            fontWeight: FontWeight.w600,
+            height: 1,
+          ),
         ),
-        const SizedBox(height: 2),
+        const SizedBox(height: 4),
         Text(
           label,
-          style: const TextStyle(color: Colors.white60, fontSize: 12),
+          style: AppText.caption,
         ),
       ],
     );
@@ -605,82 +587,60 @@ class _QuadrantGrid extends StatelessWidget {
 
   Widget _buildQuadrantCard(_QuadrantData item) {
     final count = _count(item.q);
+    // Linear风格 - 简洁边框卡片
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
         onTap: () => onTap(item.q),
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: item.color.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(AppTheme.radiusLg),
-            border: Border.all(
-              color: item.color.withValues(alpha: 0.25),
-              width: 1.5,
-            ),
+            color: AppTheme.surface,
+            borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+            border: Border.all(color: AppTheme.border),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 图标和标签
+              // 标签行
               Row(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: item.color.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-                    ),
-                    child: Icon(item.icon, size: 16, color: item.color),
-                  ),
+                  Icon(item.icon, size: 16, color: item.color),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       item.label,
                       style: TextStyle(
-                        color: item.color,
-                        fontWeight: FontWeight.w600,
+                        color: AppTheme.ink,
+                        fontWeight: FontWeight.w500,
                         fontSize: 13,
                       ),
                     ),
                   ),
-                ],
-              ),
-              const Spacer(),
-              // 数量
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    '$count',
-                    style: TextStyle(
-                      color: item.color,
-                      fontSize: 36,
-                      fontWeight: FontWeight.w800,
-                      height: 1,
+                  // 数量徽章
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: count > 0 ? item.color.withValues(alpha: 0.1) : AppTheme.surfaceMuted,
+                      borderRadius: BorderRadius.circular(AppTheme.radiusSm),
                     ),
-                  ),
-                  const SizedBox(width: 4),
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 6),
                     child: Text(
-                      '个待办',
+                      '$count',
                       style: TextStyle(
-                        color: item.color.withValues(alpha: 0.7),
+                        color: count > 0 ? item.color : AppTheme.inkMuted,
+                        fontWeight: FontWeight.w600,
                         fontSize: 12,
                       ),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 4),
+              const Spacer(),
+              // 说明
               Text(
                 item.desc,
-                style: TextStyle(
-                  color: item.color.withValues(alpha: 0.6),
-                  fontSize: 11,
-                ),
+                style: AppText.caption,
               ),
             ],
           ),
@@ -764,16 +724,16 @@ class _TaskTile extends StatelessWidget {
     // 根据象限获取颜色
     final quadrantColor = _getQuadrantColor(task.quadrant);
 
+    // Linear风格 - 简洁边框卡片
     return Container(
-      margin: const EdgeInsets.only(bottom: AppSpace.sm),
+      margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
         color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
         border: Border.all(color: AppTheme.border),
-        boxShadow: AppTheme.shadowSm,
       ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
         onTap: onEdit,
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -781,17 +741,14 @@ class _TaskTile extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // 复选框
-              Container(
-                margin: const EdgeInsets.only(top: 2),
-                child: Checkbox(
-                  value: task.taskType == TaskType.shared ? ownerDone : task.isDone,
-                  onChanged: (v) { if (v != null) onToggle(v); },
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppTheme.radiusXs),
-                  ),
+              Checkbox(
+                value: task.taskType == TaskType.shared ? ownerDone : task.isDone,
+                onChanged: (v) { if (v != null) onToggle(v); },
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppTheme.radiusXs),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 12),
               // 内容
               Expanded(
                 child: Column(
@@ -800,22 +757,22 @@ class _TaskTile extends StatelessWidget {
                     // 标题行
                     Row(
                       children: [
-                        // 象限指示条
+                        // 象限指示点
                         Container(
-                          width: 3,
-                          height: 18,
+                          width: 8,
+                          height: 8,
                           decoration: BoxDecoration(
                             color: quadrantColor,
-                            borderRadius: BorderRadius.circular(2),
+                            borderRadius: BorderRadius.circular(4),
                           ),
                         ),
-                        const SizedBox(width: 10),
+                        const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             task.title,
                             style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              fontSize: 14,
                               decoration: task.isDone ? TextDecoration.lineThrough : null,
                               color: task.isDone ? AppTheme.inkMuted : AppTheme.ink,
                             ),
@@ -823,14 +780,14 @@ class _TaskTile extends StatelessWidget {
                         ),
                         // 更多按钮
                         PopupMenuButton<String>(
-                          icon: Icon(Icons.more_horiz_rounded, size: 20, color: AppTheme.inkMuted),
+                          icon: Icon(Icons.more_horiz_rounded, size: 18, color: AppTheme.inkMuted),
                           onSelected: (v) { if (v == 'edit') onEdit(); else if (v == 'delete') onDelete(); },
                           itemBuilder: (_) => [
                             PopupMenuItem(
                               value: 'edit',
                               child: Row(
                                 children: [
-                                  Icon(Icons.edit_outlined, size: 18, color: AppTheme.primary),
+                                  Icon(Icons.edit_outlined, size: 16, color: AppTheme.primary),
                                   const SizedBox(width: 12),
                                   const Text('编辑'),
                                 ],
@@ -840,7 +797,7 @@ class _TaskTile extends StatelessWidget {
                               value: 'delete',
                               child: Row(
                                 children: [
-                                  Icon(Icons.delete_outline, size: 18, color: AppTheme.danger),
+                                  Icon(Icons.delete_outline, size: 16, color: AppTheme.danger),
                                   const SizedBox(width: 12),
                                   const Text('删除'),
                                 ],
@@ -852,7 +809,7 @@ class _TaskTile extends StatelessWidget {
                     ),
                     // 备注
                     if (task.note != null && task.note!.trim().isNotEmpty) ...[
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 6),
                       Text(
                         task.note!.trim(),
                         maxLines: 2,
@@ -860,31 +817,23 @@ class _TaskTile extends StatelessWidget {
                         style: AppText.bodyMuted(),
                       ),
                     ],
-                    const SizedBox(height: 12),
-                    // 标签
+                    const SizedBox(height: 10),
+                    // 标签 - Linear风格简洁标签
                     Wrap(
-                      spacing: 8,
-                      runSpacing: 6,
+                      spacing: 6,
+                      runSpacing: 4,
                       children: [
                         _buildChip(task.quadrant.label, quadrantColor),
-                        _buildChip(dueText, AppTheme.warning),
-                        if (task.points > 0) _buildChip('+${task.points}积分', AppTheme.success),
-                        if (task.repeatType != TaskRepeatType.none) _buildChip(repeatText, AppTheme.primary),
+                        _buildChip(dueText, AppTheme.inkTertiary),
+                        if (task.points > 0) _buildChip('+${task.points}', AppTheme.success),
                       ],
                     ),
                     // 共同任务进度
                     if (sharedProgress != null) ...[
                       const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: AppTheme.softPrimary,
-                          borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-                        ),
-                        child: Text(
-                          sharedProgress,
-                          style: TextStyle(fontSize: 12, color: AppTheme.primary),
-                        ),
+                      Text(
+                        sharedProgress,
+                        style: AppText.caption,
                       ),
                     ],
                   ],
@@ -911,17 +860,18 @@ class _TaskTile extends StatelessWidget {
   }
 
   Widget _buildChip(String text, Color color) {
+    // Linear风格 - 简洁标签，无边框
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
+        color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(AppTheme.radiusSm),
       ),
       child: Text(
         text,
         style: TextStyle(
           fontSize: 11,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w500,
           color: color,
         ),
       ),

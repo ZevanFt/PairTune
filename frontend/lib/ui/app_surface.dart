@@ -106,9 +106,10 @@ class AppSurface {
     List<Color>? gradient,
     double? radius,
   }) {
+    final colors = gradient ?? [AppTheme.heroGradient, AppTheme.primary];
     return BoxDecoration(
       gradient: LinearGradient(
-        colors: gradient ?? AppTheme.heroGradient,
+        colors: colors,
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
       ),

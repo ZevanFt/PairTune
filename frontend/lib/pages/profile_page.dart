@@ -58,9 +58,9 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
         ),
         actions: [
           IconButton(
-            onPressed: () => ref.read(themeProvider.notifier).toggle(),
-            icon: Icon(isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded),
-            tooltip: isDark ? '切换亮色' : '切换暗色',
+            onPressed: () => ref.read(themeProvider.notifier).cycle(),
+            icon: Icon(ref.read(themeProvider.notifier).icon),
+            tooltip: ref.read(themeProvider.notifier).displayName,
           ),
         ],
       ),

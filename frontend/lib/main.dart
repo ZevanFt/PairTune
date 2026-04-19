@@ -52,7 +52,7 @@ class PriorityFirstApp extends ConsumerWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
-      themeMode: themeMode,
+      themeMode: ref.watch(materialThemeModeProvider),
       routerConfig: router,
     );
   }
