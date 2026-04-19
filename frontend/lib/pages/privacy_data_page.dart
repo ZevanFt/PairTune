@@ -176,7 +176,7 @@ class _PrivacyDataPageState extends State<PrivacyDataPage> {
                   ),
                   if (_error != null) ...[
                     const SizedBox(height: 6),
-                    Text(_error!, style: AppText.bodyMuted),
+                    Text(_error!, style: AppText.bodyMuted()),
                   ],
                   const SizedBox(height: 10),
                   SizedBox(
@@ -255,7 +255,7 @@ class _PrivacyDataPageState extends State<PrivacyDataPage> {
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
       title: Text(title, style: AppText.cardTitle),
-      subtitle: Text(subtitle, style: AppText.bodyMuted),
+      subtitle: Text(subtitle, style: AppText.bodyMuted()),
       trailing: const Icon(Icons.chevron_right_rounded),
       onTap: onTap,
     );

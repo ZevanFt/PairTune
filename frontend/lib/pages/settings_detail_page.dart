@@ -35,7 +35,7 @@ class SettingsDetailPage extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(AppSpace.md),
               decoration: AppSurface.subtleCard(),
-              child: Text(subtitle, style: AppText.bodyMuted),
+              child: Text(subtitle, style: AppText.bodyMuted()),
             ),
             AppSpace.h12,
             ...items.map(

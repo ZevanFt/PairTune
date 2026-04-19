@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../services/store_api_service.dart';
+import '../models/product_item.dart';
 import '../ui/app_theme.dart';
 
 class ProductDraft {

@@ -16,7 +16,10 @@
   --shadow-glow: 0 10px 40px rgba(47, 91, 234, 0.18);
 
   --bg-gradient: radial-gradient(circle at 0% 0%, #e0ecff 0%, #f6f7fb 42%, #f9fafb 100%);
-  --sidebar-gradient: linear-gradient(160deg, #0f172a 0%, #172554 40%, #1d4ed8 100%);
+  --sidebar-gradient: linear-gradient(155deg, #0b1220 0%, #132b4a 38%, #1b4f7a 100%);
+  --sidebar-highlight: radial-gradient(circle at 20% 20%, rgba(56, 189, 248, 0.35), transparent 55%),
+    radial-gradient(circle at 80% 0%, rgba(59, 130, 246, 0.2), transparent 50%);
+  --sidebar-grid: repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0 1px, transparent 1px 12px);
 }
 
 body {

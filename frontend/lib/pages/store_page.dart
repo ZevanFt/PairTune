@@ -1,587 +1,233 @@
 import 'package:flutter/material.dart';
-import '../services/health_api_service.dart';
-import '../services/store_api_service.dart';
-import '../ui/app_surface.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../models/backend_health.dart';
+import '../models/product_item.dart';
+import '../providers/api_providers.dart';
+import '../providers/app_provider.dart';
+import '../providers/auth_provider.dart';
 import '../ui/app_space.dart';
+import '../ui/app_surface.dart';
 import '../ui/app_text.dart';
 import '../ui/app_theme.dart';
 import '../utils/error_display.dart';
-import '../widgets/hero_panel.dart';
-import '../widgets/shimmer_block.dart';
+import '../widgets/health_indicator.dart';
+import '../widgets/loading_state.dart';
+import '../widgets/section_header.dart';
+import '../widgets/status_panel.dart';
 import 'product_form_page.dart';
 import 'store_my_products_page.dart';
 import 'store_owned_records_page.dart';
 
-class StorePage extends StatefulWidget {
-  const StorePage({
-    super.key,
-    required this.owner,
-    required this.duoEnabled,
-    required this.onOwnerChanged,
-    required this.isGuest,
-    required this.onExitGuest,
-  });
-
-  final String owner;
-  final bool duoEnabled;
-  final ValueChanged<String> onOwnerChanged;
-  final bool isGuest;
-  final VoidCallback onExitGuest;
+class StorePage extends ConsumerStatefulWidget {
+  const StorePage({super.key});
 
   @override
-  State<StorePage> createState() => _StorePageState();
+  ConsumerState<StorePage> createState() => _StorePageState();
 }
 
-class _StorePageState extends State<StorePage> {
-  final _store = StoreApiService();
-  final _healthApi = HealthApiService();
+class _StorePageState extends ConsumerState<StorePage> {
   bool _loading = true;
   bool _refreshing = false;
   String? _error;
   BackendHealthStatus? _healthStatus;
-  bool _hideGuestBanner = false;
 
   int _points = 0;
   List<ProductItem> _market = [];
 
+  String get _owner => ref.read(appProvider).owner;
+  bool get _duoEnabled => ref.read(appProvider).duoEnabled;
+  bool get _isGuest => ref.read(isGuestProvider);
+
   @override
   void initState() {
     super.initState();
-    _load();
-  }
-
-  @override
-  void didUpdateWidget(covariant StorePage oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.owner != widget.owner) {
-      _load();
-    }
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
   }
 
   Future<void> _load() async {
-    setState(() {
-      if (_market.isEmpty) {
-        _loading = true;
-      } else {
-        _refreshing = true;
-      }
-      _error = null;
-    });
-
+    setState(() { if (_market.isEmpty) _loading = true; else _refreshing = true; _error = null; });
     try {
-      final results = await Future.wait([
-        _store.getPoints(widget.owner),
-        _store.listMarketProducts(widget.owner),
-      ]);
-
-      setState(() {
-        _points = results[0] as int;
-        _market = results[1] as List<ProductItem>;
-      });
+      final store = ref.read(storeApiProvider);
+      final results = await Future.wait([store.getPoints(_owner), store.listMarketProducts(_owner)]);
+      setState(() { _points = results[0] as int; _market = results[1] as List<ProductItem>; });
     } catch (e) {
       setState(() => _error = formatErrorMessage(e));
     } finally {
-      final health = await _healthApi.checkHealth();
-      if (mounted) {
-        setState(() {
-          _healthStatus = health;
-          _loading = false;
-          _refreshing = false;
-        });
-      }
+      final health = await ref.read(healthApiProvider).checkHealth();
+      if (mounted) setState(() { _healthStatus = health; _loading = false; _refreshing = false; });
     }
-  }
-
-  Widget _buildTitleWithHealth(String title) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _buildHealthDot(),
-        const SizedBox(width: 8),
-        Text(title),
-      ],
-    );
-  }
-
-  Widget _buildHealthDot() {
-    final status = _healthStatus;
-    final online = status?.online == true;
-    final color = status == null
-        ? AppTheme.neutral
-        : (online ? AppTheme.success : AppTheme.danger);
-
-    return Icon(Icons.circle, size: 11, color: color);
-  }
-
-  Widget _buildGuestBanner() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: AppTheme.panel.withValues(alpha: 0.9),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppTheme.primary.withValues(alpha: 0.18)),
-        boxShadow: AppSurface.softShadow,
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: AppTheme.softBlue,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Icon(Icons.local_play_rounded, color: AppTheme.primary),
-          ),
-          const SizedBox(width: 10),
-          const Expanded(
-            child: Text(
-              '体验模式：仅可浏览',
-              style: TextStyle(color: AppTheme.ink, fontWeight: FontWeight.w700),
-            ),
-          ),
-          IconButton(
-            onPressed: () => setState(() => _hideGuestBanner = true),
-            icon: const Icon(Icons.close_rounded, size: 18),
-            color: AppTheme.textMuted,
-            tooltip: '关闭提示',
-          ),
-        ],
-      ),
-    );
   }
 
   Future<void> _exchange(ProductItem item) async {
-    if (widget.isGuest) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('体验模式不可兑换，请登录后操作')),
-        );
-      }
-      return;
-    }
+    if (_isGuest) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('体验模式不可兑换，请登录后操作'))); return; }
     try {
-      await _store.exchange(buyer: widget.owner, productId: item.id);
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('兑换成功：${item.name}')));
-      }
+      await ref.read(storeApiProvider).exchange(buyer: _owner, productId: item.id);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('兑换成功：${item.name}')));
       await _load();
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('兑换失败：${formatErrorMessage(e)}')),
-        );
-      }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('兑换失败：${formatErrorMessage(e)}')));
     }
-  }
-
-  Future<bool> _confirmExchange(ProductItem item) async {
-    final confirmed = await showModalBottomSheet<bool>(
-      context: context,
-      backgroundColor: AppTheme.panel,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-      ),
-      builder: (context) => Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-        child: SafeArea(
-          top: false,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                '确认兑换',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-              ),
-              const SizedBox(height: 4),
-              const Text(
-                '请确认商品与积分信息',
-                style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
-              ),
-              const SizedBox(height: 12),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: AppTheme.panelBorder),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item.name,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      children: [
-                        _metaChip('消耗 ${item.pointsCost} 积分', AppTheme.softViolet),
-                        _metaChip('库存 ${item.stock}', AppTheme.softBlue),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.pop(context, false),
-                      child: const Text('取消'),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: FilledButton(
-                      onPressed: () => Navigator.pop(context, true),
-                      child: const Text('确认兑换'),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-    return confirmed == true;
   }
 
   Future<void> _confirmAndExchange(ProductItem item) async {
-    final confirmed = await _confirmExchange(item);
-    if (!confirmed) return;
-    await _exchange(item);
+    final confirmed = await showModalBottomSheet<bool>(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+        child: SafeArea(top: false, child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('确认兑换', style: AppText.title3),
+            const SizedBox(height: 4),
+            Text('请确认商品与积分信息', style: AppText.footnote.copyWith(color: AppTheme.textMuted)),
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity, padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: AppTheme.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppTheme.border)),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(item.name, style: AppText.headline),
+                const SizedBox(height: 8),
+                Wrap(spacing: 8, children: [
+                  _chip('消耗 ${item.pointsCost} 积分', AppTheme.softViolet),
+                  _chip('库存 ${item.stock}', AppTheme.softBlue),
+                ]),
+              ]),
+            ),
+            const SizedBox(height: 14),
+            Row(children: [
+              Expanded(child: OutlinedButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消'))),
+              const SizedBox(width: 10),
+              Expanded(child: FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('确认兑换'))),
+            ]),
+          ],
+        )),
+      ),
+    );
+    if (confirmed == true) await _exchange(item);
   }
 
   Future<void> _showCreateProductPage() async {
-    final draft = await Navigator.push<ProductDraft>(
-      context,
-      MaterialPageRoute(builder: (_) => const ProductFormPage()),
-    );
+    final draft = await Navigator.push<ProductDraft>(context, MaterialPageRoute(builder: (_) => const ProductFormPage()));
     if (draft == null) return;
-
     try {
-      await _store.createProduct(
-        publisher: widget.owner,
-        name: draft.name,
-        description: draft.description,
-        pointsCost: draft.pointsCost,
-        stock: draft.stock,
-      );
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('发布成功')));
-      }
+      await ref.read(storeApiProvider).createProduct(publisher: _owner, name: draft.name, description: draft.description, pointsCost: draft.pointsCost, stock: draft.stock);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('发布成功')));
       await _load();
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('发布失败：${formatErrorMessage(e)}')),
-        );
-      }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('发布失败：${formatErrorMessage(e)}')));
     }
   }
 
   Future<void> _exportSnapshot() async {
     try {
-      final snapshot = await _store.exportSnapshot();
-      final tasks = (snapshot['tasks'] as List<dynamic>? ?? const []).length;
-      final products =
-          (snapshot['products'] as List<dynamic>? ?? const []).length;
-      final ledger = (snapshot['ledger'] as List<dynamic>? ?? const []).length;
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('快照导出成功：任务 $tasks，商品 $products，流水 $ledger')),
-        );
-      }
+      final snapshot = await ref.read(storeApiProvider).exportSnapshot();
+      final tasks = (snapshot['tasks'] as List? ?? const []).length;
+      final products = (snapshot['products'] as List? ?? const []).length;
+      final ledger = (snapshot['ledger'] as List? ?? const []).length;
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('快照导出成功：任务 $tasks，商品 $products，流水 $ledger')));
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('导出失败：${formatErrorMessage(e)}')),
-        );
-      }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('导出失败：${formatErrorMessage(e)}')));
     }
-  }
-
-  Future<void> _openMyProductsPage() async {
-    await Navigator.push<void>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => StoreMyProductsPage(owner: widget.owner),
-      ),
-    );
-    await _load();
-  }
-
-  Future<void> _openOwnedRecordsPage() async {
-    await Navigator.push<void>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => StoreOwnedRecordsPage(owner: widget.owner),
-      ),
-    );
-    await _load();
   }
 
   @override
   Widget build(BuildContext context) {
+    final appState = ref.watch(appProvider);
+
     return Scaffold(
       appBar: AppBar(
-        title: _buildTitleWithHealth('积分商城'),
+        title: TitleWithHealth(
+          title: '积分商城',
+          status: _healthStatus ?? const BackendHealthStatus(online: false, statusCode: 0, statusText: '检查中'),
+        ),
         actions: [
-          if (!widget.isGuest) ...[
-            TextButton.icon(
-              onPressed: _showCreateProductPage,
-              icon: const Icon(Icons.add_rounded, size: 18),
-              label: const Text('发布'),
-            ),
-            IconButton(
-              tooltip: '我发布的商品',
-              onPressed: _openMyProductsPage,
-              icon: const Icon(Icons.inventory_2_outlined),
-            ),
-            IconButton(
-              tooltip: '兑换记录',
-              onPressed: _openOwnedRecordsPage,
-              icon: const Icon(Icons.history_rounded),
-            ),
-            IconButton(
-              tooltip: '导出快照',
-              onPressed: _exportSnapshot,
-              icon: const Icon(Icons.download_outlined),
-            ),
+          if (!_isGuest) ...[
+            TextButton.icon(onPressed: _showCreateProductPage, icon: const Icon(Icons.add_rounded, size: 18), label: const Text('发布')),
+            IconButton(tooltip: '我发布的商品', onPressed: () => Navigator.push<void>(context, MaterialPageRoute(builder: (_) => StoreMyProductsPage(owner: _owner))).then((_) => _load()), icon: const Icon(Icons.inventory_2_outlined)),
+            IconButton(tooltip: '兑换记录', onPressed: () => Navigator.push<void>(context, MaterialPageRoute(builder: (_) => StoreOwnedRecordsPage(owner: _owner))).then((_) => _load()), icon: const Icon(Icons.history_rounded)),
+            IconButton(tooltip: '导出快照', onPressed: _exportSnapshot, icon: const Icon(Icons.download_outlined)),
           ],
-          if (widget.duoEnabled)
-            Padding(
-              padding: const EdgeInsets.only(right: 12),
-              child: SegmentedButton<String>(
-                showSelectedIcon: false,
-                segments: const [
-                  ButtonSegment(value: 'me', label: Text('我')),
-                  ButtonSegment(value: 'partner', label: Text('搭档')),
-                ],
-                selected: {widget.owner},
-                onSelectionChanged: (value) {
-                  widget.onOwnerChanged(value.first);
-                },
-              ),
-            ),
+          if (appState.duoEnabled)
+            Padding(padding: const EdgeInsets.only(right: 12), child: SegmentedButton<String>(
+              showSelectedIcon: false,
+              segments: const [ButtonSegment(value: 'me', label: Text('我')), ButtonSegment(value: 'partner', label: Text('搭档'))],
+              selected: {appState.owner},
+              onSelectionChanged: (v) => ref.read(appProvider.notifier).setOwner(v.first),
+            )),
         ],
       ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [AppTheme.pageBgTop, AppTheme.pageBgMid, AppTheme.pageBgBottom],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
-        child: RefreshIndicator(
-          onRefresh: _load,
-          child: ListView(
-            padding: const EdgeInsets.all(AppSpace.lg),
-            children: [
-              if (widget.isGuest && !_hideGuestBanner) _buildGuestBanner(),
-              if (_refreshing)
-                const Padding(
-                  padding: EdgeInsets.only(bottom: 12),
-                  child: LinearProgressIndicator(minHeight: 2),
-                ),
-              if (_error != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: _buildErrorPanel(_error!),
-                ),
-              _buildPointsCard(),
-              AppSpace.h16,
-              _buildSectionHeader(
-                widget.duoEnabled ? '可兑换商品（搭档发布）' : '奖励区',
-                widget.duoEnabled ? '消耗积分并兑换奖励' : '先积累积分并准备奖励',
-              ),
-              AppSpace.h8,
-              if (widget.duoEnabled) ...[
-                if (_loading && _market.isEmpty)
-                  ..._buildListSkeletons()
-                else ...[
-                  ..._market.map(_buildMarketItem),
-                  if (_market.isEmpty) _buildEmptyCard('暂无可兑换商品'),
-                ],
-              ] else
-                _buildEmptyCard('单人模式下暂不开放双人兑换，邀请搭档后即可双向兑换。'),
-              AppSpace.h24,
-            ],
-          ),
+      body: RefreshIndicator(
+        onRefresh: _load,
+        child: ListView(
+          padding: const EdgeInsets.all(AppSpace.lg),
+          children: [
+            if (_refreshing) const Padding(padding: EdgeInsets.only(bottom: 12), child: LinearProgressIndicator(minHeight: 2)),
+            if (_error != null) Padding(padding: const EdgeInsets.only(bottom: 12), child: ErrorPanel(message: _error!, onRetry: _load)),
+            _buildPointsCard(),
+            const SizedBox(height: AppSpace.lg),
+            SectionHeader(title: appState.duoEnabled ? '可兑换商品（搭档发布）' : '奖励区', subtitle: appState.duoEnabled ? '消耗积分并兑换奖励' : '先积累积分并准备奖励'),
+            const SizedBox(height: AppSpace.sm),
+            if (_loading && _market.isEmpty)
+              const LoadingState()
+            else if (appState.duoEnabled) ...[
+              ..._market.map(_buildMarketItem),
+              if (_market.isEmpty) _emptyCard('暂无可兑换商品'),
+            ] else
+              _emptyCard('单人模式下暂不开放双人兑换，邀请搭档后即可双向兑换。'),
+          ],
         ),
       ),
     );
-  }
-
-  List<Widget> _buildListSkeletons() {
-    return [
-      const ShimmerBlock(height: 102),
-      const SizedBox(height: 8),
-      const ShimmerBlock(height: 102),
-    ];
   }
 
   Widget _buildPointsCard() {
-    return HeroPanel(
-      tag: 'PAIR REWARD',
-      title: widget.owner == 'me' ? '我的积分余额' : '搭档积分余额',
-      subtitle: '用任务积分兑换奖励，保持正向循环',
-      metrics: [
-        HeroMetricData(
-          icon: Icons.stars_rounded,
-          label: '当前积分',
-          value: '$_points',
-        ),
-        HeroMetricData(
-          icon: Icons.storefront_rounded,
-          label: '可兑换',
-          value: '${_market.length}',
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSectionHeader(String title, String subtitle) {
-    return Row(
-      children: [
-        Container(
-          width: 8,
-          height: 8,
-          decoration: BoxDecoration(
-            color: AppTheme.blush,
-            borderRadius: BorderRadius.circular(999),
-          ),
-        ),
-        AppSpace.w10,
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: AppText.sectionTitle,
-            ),
-            Text(
-              subtitle,
-              style: AppText.sectionSubtitle,
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildErrorPanel(String text) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppTheme.errorBg,
-        border: Border.all(color: AppTheme.errorBorder),
-        borderRadius: BorderRadius.circular(14),
+        gradient: const LinearGradient(colors: [Color(0xFF1A2B4F), Color(0xFF314772), Color(0xFF3C5484)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+        borderRadius: BorderRadius.circular(AppTheme.radiusXl),
       ),
-      child: Row(
-        children: [
-          const Icon(Icons.error_outline_rounded, size: 16, color: AppTheme.danger),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              '加载失败：$text',
-              style: const TextStyle(
-                color: AppTheme.danger,
-                fontWeight: FontWeight.w600,
-                fontSize: 12,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEmptyCard(String text) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-      decoration: AppSurface.subtleCard(),
-      child: Text(
-        text,
-        style: const TextStyle(
-          fontSize: 13,
-          color: AppTheme.textMuted,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(6)), child: const Text('PAIR REWARD', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.white70, letterSpacing: 1.2))),
+        const SizedBox(height: 12),
+        Text(_owner == 'me' ? '我的积分余额' : '搭档积分余额', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Colors.white)),
+        const SizedBox(height: 4),
+        const Text('用任务积分兑换奖励，保持正向循环', style: TextStyle(color: Colors.white60, fontSize: 13)),
+        const SizedBox(height: 16),
+        Row(children: [
+          Icon(Icons.stars_rounded, color: Colors.white70, size: 16), const SizedBox(width: 4),
+          Text('$_points', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 20)), const SizedBox(width: 4),
+          const Text('当前积分', style: TextStyle(color: Colors.white60, fontSize: 12)),
+          const SizedBox(width: 16),
+          Icon(Icons.storefront_rounded, color: Colors.white70, size: 16), const SizedBox(width: 4),
+          Text('${_market.length}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 20)), const SizedBox(width: 4),
+          const Text('可兑换', style: TextStyle(color: Colors.white60, fontSize: 12)),
+        ]),
+      ]),
     );
   }
 
   Widget _buildMarketItem(ProductItem item) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.only(bottom: 10), padding: const EdgeInsets.all(12),
       decoration: AppSurface.card(),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  item.name,
-                  style: AppText.cardTitle,
-                ),
-                const SizedBox(height: 5),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: [
-                    _metaChip('库存 ${item.stock}', AppTheme.softBlue),
-                    _metaChip('${item.pointsCost} 积分', AppTheme.softAmber),
-                  ],
-                ),
-                if (item.description != null && item.description!.trim().isNotEmpty) ...[
-                  const SizedBox(height: 6),
-                  Text(
-                    item.description!,
-                    style: AppText.bodyMuted,
-                  ),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(width: 10),
-          FilledButton.tonal(
-            onPressed: item.stock <= 0 ? null : () => _confirmAndExchange(item),
-            child: Text(item.stock <= 0 ? '已售罄' : '兑换'),
-          ),
-        ],
-      ),
+      child: Row(children: [
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(item.name, style: AppText.headline),
+          const SizedBox(height: 5),
+          Wrap(spacing: 6, runSpacing: 6, children: [_chip('库存 ${item.stock}', AppTheme.softBlue), _chip('${item.pointsCost} 积分', AppTheme.softAmber)]),
+          if (item.description != null && item.description!.trim().isNotEmpty) ...[const SizedBox(height: 6), Text(item.description!, style: AppText.bodyMuted())],
+        ])),
+        const SizedBox(width: 10),
+        FilledButton.tonal(onPressed: item.stock <= 0 ? null : () => _confirmAndExchange(item), child: Text(item.stock <= 0 ? '已售罄' : '兑换')),
+      ]),
     );
   }
 
-  Widget _metaChip(String text, Color bg) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(999)),
-      child: Text(
-        text,
-        style: AppText.chipText,
-      ),
-    );
-  }
+  Widget _emptyCard(String text) => Container(width: double.infinity, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14), decoration: AppSurface.subtleCard(), child: Text(text, style: AppText.bodyMuted()));
 
+  Widget _chip(String text, Color bg) => Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(999)), child: Text(text, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)));
 }

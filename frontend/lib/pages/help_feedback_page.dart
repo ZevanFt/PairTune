@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../config/profile_config.dart';
 import '../i18n/app_strings.dart';
+import '../models/feedback_item.dart';
 import '../services/feedback_api_service.dart';
 import '../ui/app_space.dart';
 import '../ui/app_surface.dart';
@@ -184,7 +185,7 @@ class _HelpFeedbackPageState extends State<HelpFeedbackPage> {
                 padding: const EdgeInsets.only(top: 8),
                 child: Text(
                   _recentError!,
-                  style: AppText.bodyMuted.copyWith(color: AppTheme.danger),
+                  style: AppText.bodyMuted().copyWith(color: AppTheme.danger),
                 ),
               ),
             if (_recent.isNotEmpty) ...[
@@ -237,7 +238,7 @@ class _HelpFeedbackPageState extends State<HelpFeedbackPage> {
                 title: Text(item.$1, style: AppText.cardTitle),
                 childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
                 children: [
-                  Text(item.$2, style: AppText.bodyMuted),
+                  Text(item.$2, style: AppText.bodyMuted()),
                 ],
               ),
             )
@@ -357,7 +358,7 @@ class _HelpFeedbackPageState extends State<HelpFeedbackPage> {
               children: [
                 Text(item.title, style: AppText.cardTitle),
                 const SizedBox(height: 2),
-                Text(item.category, style: AppText.bodyMuted),
+                Text(item.category, style: AppText.bodyMuted()),
               ],
             ),
           ),

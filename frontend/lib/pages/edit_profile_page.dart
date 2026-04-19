@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../config/profile_config.dart';
 import '../i18n/app_strings.dart';
+import '../models/user_profile.dart';
 import '../services/account_api_service.dart';
 import '../ui/app_space.dart';
 import '../ui/app_surface.dart';
@@ -11,9 +12,9 @@ import '../ui/profile_avatar.dart';
 import '../utils/error_display.dart';
 
 class EditProfilePage extends StatefulWidget {
-  const EditProfilePage({super.key, required this.profile});
+  const EditProfilePage({super.key, required this.owner});
 
-  final UserProfile profile;
+  final String owner;
 
   @override
   State<EditProfilePage> createState() => _EditProfilePageState();
@@ -30,19 +31,38 @@ class _EditProfilePageState extends State<EditProfilePage> {
   bool _useCustomRelation = false;
   String _avatarKey = '';
   bool _saving = false;
+  bool _loading = true;
+  String? _error;
+  UserProfile? _profile;
 
   @override
   void initState() {
     super.initState();
-    final profile = widget.profile;
-    _nameController.text = profile.displayName;
-    _bioController.text = profile.bio ?? '';
-    _relationshipLabel = profile.relationshipLabel;
-    _avatarKey = profile.avatar ?? '';
-    _useCustomRelation =
-        !AppStrings.relationshipPresets.contains(_relationshipLabel);
-    if (_useCustomRelation) {
-      _customRelationController.text = _relationshipLabel;
+    _loadProfile();
+  }
+
+  Future<void> _loadProfile() async {
+    try {
+      final profile = await _api.getProfile(widget.owner);
+      if (!mounted) return;
+      setState(() {
+        _profile = profile;
+        _nameController.text = profile.displayName;
+        _bioController.text = profile.bio ?? '';
+        _relationshipLabel = profile.relationshipLabel;
+        _avatarKey = profile.avatar ?? '';
+        _useCustomRelation = !AppStrings.relationshipPresets.contains(_relationshipLabel);
+        if (_useCustomRelation) {
+          _customRelationController.text = _relationshipLabel;
+        }
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = formatErrorMessage(e);
+        _loading = false;
+      });
     }
   }
 
@@ -66,7 +86,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
     setState(() => _saving = true);
     try {
       final updated = await _api.updateProfile(
-        owner: widget.profile.owner,
+        owner: widget.owner,
         displayName: displayName,
         bio: bio.isEmpty ? null : bio,
         avatar: _avatarKey.isEmpty ? null : _avatarKey,
@@ -140,6 +160,18 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   @override
   Widget build(BuildContext context) {
+    if (_loading) {
+      return Scaffold(
+        appBar: AppBar(title: const Text(AppStrings.editProfileTitle)),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (_error != null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text(AppStrings.editProfileTitle)),
+        body: Center(child: Text(_error!)),
+      );
+    }
     final selectedAvatar = resolveAvatarPreset(_avatarKey);
 
     return Scaffold(
@@ -248,7 +280,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                                     const SizedBox(height: 6),
                                     Text(
                                       preset.label,
-                                      style: AppText.bodyMuted.copyWith(
+                                      style: AppText.bodyMuted().copyWith(
                                         fontWeight: FontWeight.w700,
                                         color: AppTheme.ink,
                                       ),

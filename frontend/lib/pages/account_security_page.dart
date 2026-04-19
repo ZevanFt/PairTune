@@ -120,7 +120,7 @@ class _AccountSecurityPageState extends State<AccountSecurityPage> {
                 padding: const EdgeInsets.only(bottom: 12),
                 child: Text(
                   _error!,
-                  style: AppText.bodyMuted.copyWith(color: AppTheme.danger),
+                  style: AppText.bodyMuted().copyWith(color: AppTheme.danger),
                 ),
               ),
             Container(
@@ -185,7 +185,7 @@ class _AccountSecurityPageState extends State<AccountSecurityPage> {
                   const SizedBox(height: 8),
                   Text(
                     '${AppStrings.accountSecurityStrengthLabel}：${_strengthLabel()}',
-                    style: AppText.bodyMuted,
+                    style: AppText.bodyMuted(),
                   ),
                   const SizedBox(height: 10),
                   _buildStrengthTips(),
@@ -230,7 +230,7 @@ class _AccountSecurityPageState extends State<AccountSecurityPage> {
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
       title: Text(title, style: AppText.cardTitle),
-      subtitle: Text(subtitle, style: AppText.bodyMuted),
+      subtitle: Text(subtitle, style: AppText.bodyMuted()),
       trailing: Switch(value: value, onChanged: onChanged),
     );
   }
@@ -273,8 +273,8 @@ class _AccountSecurityPageState extends State<AccountSecurityPage> {
           .map(
             (tip) => Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: AppSurface.subtleCard(shadow: false),
-              child: Text(tip, style: AppText.bodyMuted),
+              decoration: AppSurface.subtleCard(),
+              child: Text(tip, style: AppText.bodyMuted()),
             ),
           )
           .toList(),

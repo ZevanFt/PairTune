@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../models/product_item.dart';
 import '../services/store_api_service.dart';
 import '../ui/app_space.dart';
 import '../ui/app_surface.dart';
@@ -105,7 +106,7 @@ class _StoreMyProductsPageState extends State<StoreMyProductsPage> {
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(12),
-                decoration: AppSurface.subtleCard(alpha: 1),
+                decoration: AppSurface.subtleCard(),
                 child: Text(item.name, style: AppText.cardTitle),
               ),
               const SizedBox(height: 14),

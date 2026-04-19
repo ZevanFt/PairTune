@@ -1,650 +1,339 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../i18n/app_strings.dart';
-import '../services/account_api_service.dart';
-import '../services/health_api_service.dart';
-import '../ui/app_surface.dart';
+import '../models/backend_health.dart';
+import '../providers/api_providers.dart';
+import '../providers/app_provider.dart';
+import '../providers/auth_provider.dart';
+import '../providers/theme_provider.dart';
 import '../ui/app_space.dart';
 import '../ui/app_text.dart';
 import '../ui/app_theme.dart';
-import '../ui/profile_avatar.dart';
 import '../utils/error_display.dart';
-import '../widgets/hero_panel.dart';
+import '../widgets/app_scaffold.dart';
+import '../widgets/health_indicator.dart';
+import '../widgets/section_header.dart';
+import '../widgets/status_panel.dart';
 import 'about_page.dart';
 import 'account_security_page.dart';
-import 'debug_page.dart';
 import 'edit_profile_page.dart';
 import 'help_feedback_page.dart';
 import 'privacy_data_page.dart';
 import 'relationship_page.dart';
 
-class ProfilePage extends StatefulWidget {
-  const ProfilePage({
-    super.key,
-    required this.owner,
-    required this.duoEnabled,
-    required this.onModeChanged,
-    required this.onLogout,
-    this.isGuest = false,
-    required this.onExitGuest,
-  });
-
-  final String owner;
-  final bool duoEnabled;
-  final ValueChanged<bool> onModeChanged;
-  final Future<void> Function() onLogout;
-  final bool isGuest;
-  final VoidCallback onExitGuest;
+class ProfilePage extends ConsumerStatefulWidget {
+  const ProfilePage({super.key});
 
   @override
-  State<ProfilePage> createState() => _ProfilePageState();
+  ConsumerState<ProfilePage> createState() => _ProfilePageState();
 }
 
-class _ProfilePageState extends State<ProfilePage> {
-  final _accountApi = AccountApiService();
-  final _healthApi = HealthApiService();
-  bool _loading = true;
-  String? _error;
+class _ProfilePageState extends ConsumerState<ProfilePage> {
   BackendHealthStatus? _healthStatus;
-  UserProfile? _profile;
-  AppSettings? _settings;
-  int _debugTapCount = 0;
-  int _versionTapCount = 0;
-  DateTime? _debugTapStart;
-  bool _debugUnlocked = false;
-  bool get _showDebugHint => !kReleaseMode;
+
+  String get _owner => ref.read(appProvider).owner;
+  bool get _isGuest => ref.read(isGuestProvider);
 
   @override
   void initState() {
     super.initState();
-    _load();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadHealth());
+  }
+
+  Future<void> _loadHealth() async {
+    final health = await ref.read(healthApiProvider).checkHealth();
+    if (mounted) setState(() => _healthStatus = health);
   }
 
   @override
-  void didUpdateWidget(covariant ProfilePage oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.owner != widget.owner) {
-      _load();
-    }
-  }
+  Widget build(BuildContext context) {
+    final appState = ref.watch(appProvider);
+    final isDark = ref.watch(isDarkModeProvider);
 
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-
-    try {
-      final results = await Future.wait([
-        _accountApi.getProfile(widget.owner),
-        _accountApi.getSettings(widget.owner),
-      ]);
-      setState(() {
-        _profile = results[0] as UserProfile;
-        _settings = results[1] as AppSettings;
-      });
-    } catch (e) {
-      setState(() {
-        _error = formatErrorMessage(e);
-      });
-    } finally {
-      final health = await _healthApi.checkHealth();
-      if (mounted) {
-        setState(() {
-          _healthStatus = health;
-          _loading = false;
-        });
-      }
-    }
-  }
-
-  void _registerDebugTap() {
-    final now = DateTime.now();
-    if (_debugTapStart == null || now.difference(_debugTapStart!) > const Duration(seconds: 4)) {
-      _debugTapStart = now;
-      _debugTapCount = 0;
-      _versionTapCount = 0;
-    }
-    _debugTapCount += 1;
-    if (_debugTapCount >= 5) {
-      _versionTapCount = 0;
-    }
-  }
-
-  void _registerVersionTap() {
-    if (_debugTapCount < 5) return;
-    final now = DateTime.now();
-    if (_debugTapStart == null || now.difference(_debugTapStart!) > const Duration(seconds: 6)) {
-      _debugTapStart = null;
-      _debugTapCount = 0;
-      _versionTapCount = 0;
-      return;
-    }
-      _versionTapCount += 1;
-    if (_versionTapCount >= 3) {
-      setState(() => _debugUnlocked = true);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(AppStrings.profileDebugUnlocked)),
-      );
-    }
-  }
-
-  Future<void> _editProfile() async {
-    final profile = _profile;
-    if (profile == null) return;
-
-    final updated = await Navigator.push<UserProfile>(
-      context,
-      MaterialPageRoute(
-        builder: (context) => EditProfilePage(profile: profile),
-      ),
-    );
-
-    if (updated != null) {
-      setState(() => _profile = updated);
-    }
-  }
-
-  Future<void> _changeDuoMode(bool enabled) async {
-    widget.onModeChanged(enabled);
-    try {
-      final settings = await _accountApi.updateSettings(
-        owner: widget.owner,
-        duoEnabled: enabled,
-      );
-      setState(() => _settings = settings);
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            AppStrings.profileModeSyncFailDetail(formatErrorMessage(e)),
-          ),
+    return AppScrollScaffold(
+      appBar: AppBar(
+        title: TitleWithHealth(
+          title: '个人中心',
+          status: _healthStatus ?? const BackendHealthStatus(online: false, statusCode: 0, statusText: '检查中'),
         ),
-      );
-    }
+        actions: [
+          IconButton(
+            onPressed: () => ref.read(themeProvider.notifier).toggle(),
+            icon: Icon(isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded),
+            tooltip: isDark ? '切换亮色' : '切换暗色',
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(AppSpace.lg),
+      children: [
+        // Guest banner
+        if (_isGuest) ...[
+          GuestBanner(onExit: () => ref.read(authProvider.notifier).exitGuest()),
+          const SizedBox(height: AppSpace.md),
+        ],
+
+        // Profile card
+        _ProfileCard(
+          owner: appState.owner,
+          duoEnabled: appState.duoEnabled,
+          isGuest: _isGuest,
+        ),
+        const SizedBox(height: AppSpace.lg),
+
+        // Settings sections
+        const SectionHeader(title: '资料与关系', subtitle: '编辑资料并维护协作身份'),
+        const SizedBox(height: AppSpace.sm),
+        _SettingsGroup(items: [
+          _SettingsItem(
+            icon: Icons.edit_rounded,
+            title: '编辑资料',
+            subtitle: '完善头像、昵称与简介',
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => EditProfilePage(owner: _owner))),
+          ),
+          _SettingsItem(
+            icon: Icons.people_rounded,
+            title: '关系管理',
+            subtitle: '协作标签与偏好',
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => RelationshipPage(owner: _owner))),
+          ),
+          _SettingsItem(
+            icon: Icons.group_work_rounded,
+            title: '双人协作模式',
+            subtitle: appState.duoEnabled ? '已开启：可切换我/搭档视角' : '已关闭：当前为单人模式',
+            trailing: Switch(value: appState.duoEnabled, onChanged: (v) => _toggleDuoMode(v)),
+          ),
+        ]),
+        const SizedBox(height: AppSpace.lg),
+
+        const SectionHeader(title: '账号与通知', subtitle: '管理账号安全并调整消息提醒'),
+        const SizedBox(height: AppSpace.sm),
+        _SettingsGroup(items: [
+          _SettingsItem(
+            icon: Icons.shield_rounded,
+            title: '账号安全',
+            subtitle: '本地安全设置与检查',
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => AccountSecurityPage(owner: _owner))),
+          ),
+        ]),
+        const SizedBox(height: AppSpace.lg),
+
+        const SectionHeader(title: '支持与隐私', subtitle: '反馈问题并管理隐私数据'),
+        const SizedBox(height: AppSpace.sm),
+        _SettingsGroup(items: [
+          _SettingsItem(
+            icon: Icons.help_outline_rounded,
+            title: '帮助与反馈',
+            subtitle: '问题反馈与产品建议',
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => HelpFeedbackPage(owner: _owner))),
+          ),
+          _SettingsItem(
+            icon: Icons.privacy_tip_rounded,
+            title: '隐私与数据',
+            subtitle: '导出数据、清理缓存',
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => PrivacyDataPage(owner: _owner))),
+          ),
+          _SettingsItem(
+            icon: Icons.info_outline_rounded,
+            title: '关于',
+            subtitle: '作者与开源依赖说明',
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AboutPage())),
+          ),
+        ]),
+        const SizedBox(height: AppSpace.lg),
+
+        // Logout
+        if (!_isGuest)
+          FilledButton.tonal(
+            onPressed: _confirmLogout,
+            style: FilledButton.styleFrom(foregroundColor: AppTheme.danger),
+            child: const Text('退出登录'),
+          ),
+      ],
+    );
   }
 
-  Future<void> _changeNotificationMode(bool enabled) async {
+  Future<void> _toggleDuoMode(bool enabled) async {
     try {
-      final settings = await _accountApi.updateSettings(
-        owner: widget.owner,
-        notificationsEnabled: enabled,
-      );
-      setState(() => _settings = settings);
+      await ref.read(accountApiProvider).updateSettings(owner: _owner, duoEnabled: enabled);
+      ref.read(appProvider.notifier).setDuoEnabled(enabled);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              AppStrings.profileSettingFailDetail(formatErrorMessage(e)),
-            ),
-          ),
+          SnackBar(content: Text('模式同步失败：${formatErrorMessage(e)}')),
         );
       }
     }
   }
 
+  Future<void> _confirmLogout() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('退出登录'),
+        content: const Text('退出后需要重新登录才能继续使用'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: AppTheme.danger),
+            child: const Text('确认退出'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      ref.read(appProvider.notifier).reset();
+      await ref.read(authProvider.notifier).logout();
+    }
+  }
+}
+
+// ─── Profile Card ──────────────────────────────────────────────────────────
+
+class _ProfileCard extends StatelessWidget {
+  const _ProfileCard({
+    required this.owner,
+    required this.duoEnabled,
+    required this.isGuest,
+  });
+
+  final String owner;
+  final bool duoEnabled;
+  final bool isGuest;
+
   @override
   Widget build(BuildContext context) {
-    final profile = _profile;
-    final settings = _settings;
-
-    return Scaffold(
-      appBar: AppBar(title: _buildTitleWithHealth(AppStrings.profileTitle)),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [AppTheme.pageBgTop, AppTheme.pageBgMid, AppTheme.pageBgBottom],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF1A2B4F), Color(0xFF314772)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
-        child: RefreshIndicator(
-          onRefresh: _load,
-          child: ListView(
-            padding: const EdgeInsets.all(AppSpace.lg),
+        borderRadius: BorderRadius.circular(AppTheme.radiusXl),
+      ),
+      child: Column(
+        children: [
+          Row(
             children: [
-              if (_error != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: _buildErrorPanel(_error!),
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(14),
                 ),
-              GestureDetector(
-                onTap: _registerDebugTap,
-                child: _buildHeaderCard(profile),
+                child: Icon(
+                  isGuest ? Icons.person_outline_rounded : Icons.person_rounded,
+                  color: Colors.white,
+                  size: 28,
+                ),
               ),
-              AppSpace.h16,
-              if (widget.isGuest)
-                _buildGuestLoginCard()
-              else ...[
-                _buildSectionTitle(
-                  AppStrings.profileSectionInfoTitle,
-                  AppStrings.profileSectionInfoSubtitle,
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isGuest ? '体验用户' : (owner == 'me' ? '我' : '搭档'),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      duoEnabled ? '双人协作模式' : '单人模式',
+                      style: const TextStyle(color: Colors.white60, fontSize: 13),
+                    ),
+                  ],
                 ),
-                AppSpace.h8,
-                _buildInfoCard(profile),
-                AppSpace.h12,
-                _buildSectionTitle(
-                  AppStrings.profileSectionAccountTitle,
-                  AppStrings.profileSectionAccountSubtitle,
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(999),
                 ),
-                AppSpace.h8,
-                _buildAccountCard(settings),
-                AppSpace.h12,
-                _buildSectionTitle(
-                  AppStrings.profileSectionSupportTitle,
-                  AppStrings.profileSectionSupportSubtitle,
-                ),
-                AppSpace.h8,
-                _buildSupportCard(),
-              ],
-              const SizedBox(height: AppSpace.lg + 2),
-              GestureDetector(
-                onTap: _registerVersionTap,
-                child: const Text(
-                  AppStrings.profileVersion,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: AppTheme.neutralStrong, fontSize: 12),
+                child: Text(
+                  duoEnabled ? '双人' : '单人',
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTitleWithHealth(String title) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _buildHealthDot(),
-        const SizedBox(width: 8),
-        Text(title),
-      ],
-    );
-  }
-
-  Widget _buildHealthDot() {
-    final status = _healthStatus;
-    final online = status?.online == true;
-    final color = status == null
-        ? AppTheme.neutral
-        : (online ? AppTheme.success : AppTheme.danger);
-    return Icon(Icons.circle, size: 11, color: color);
-  }
-
-  Widget _buildHeaderCard(UserProfile? profile) {
-    final preset = resolveAvatarPreset(profile?.avatar);
-    return HeroPanel(
-      tag: 'PROFILE',
-      title: profile?.displayName ?? AppStrings.profileDefaultName,
-      subtitle: AppStrings.profileOwnerId(
-        profile?.owner ?? AppStrings.profileOwnerPlaceholder,
-      ),
-      trailing: CircleAvatar(
-        radius: 18,
-        backgroundColor: preset.bgColor.withValues(alpha: 0.5),
-        child: Icon(preset.icon, color: preset.fgColor, size: 20),
-      ),
-      metrics: [
-        HeroMetricData(
-          icon: widget.duoEnabled
-              ? Icons.people_alt_rounded
-              : Icons.person_outline_rounded,
-          label: AppStrings.profileModeLabel,
-          value: widget.duoEnabled
-              ? AppStrings.profileModeDuo
-              : AppStrings.profileModeSolo,
-        ),
-        HeroMetricData(
-          icon: widget.owner == 'me'
-              ? Icons.person_pin_circle_rounded
-              : Icons.handshake_rounded,
-          label: AppStrings.profileOwnerLabel,
-          value: widget.owner == 'me'
-              ? AppStrings.profileOwnerMe
-              : AppStrings.profileOwnerPartner,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSectionTitle(String title, String subtitle) {
-    return Row(
-      children: [
-        Container(
-          width: 8,
-          height: 8,
-          decoration: BoxDecoration(
-            color: AppTheme.blush,
-            borderRadius: BorderRadius.circular(999),
-          ),
-        ),
-        AppSpace.w10,
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: AppText.sectionTitle),
-            Text(subtitle, style: AppText.sectionSubtitle),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildInfoCard(UserProfile? profile) {
-    return Container(
-      decoration: AppSurface.card(alpha: 0.98),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildInlineItem(
-            Icons.edit_rounded,
-            AppStrings.profileEdit,
-            profile?.displayName ?? AppStrings.profileLoading,
-            onTap: _loading ? null : _editProfile,
-          ),
-          _buildDivider(),
-          _buildInlineItem(
-            Icons.people_alt_rounded,
-            AppStrings.profileRelationship,
-            AppStrings.profileRelationshipSubtitle,
-            onTap: () async {
-              final current = _profile;
-              if (current == null) return;
-              final updated = await Navigator.push<UserProfile>(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => RelationshipPage(profile: current),
-                ),
-              );
-              if (updated != null && mounted) {
-                setState(() => _profile = updated);
-              }
-            },
-          ),
-          _buildDivider(),
-          _buildInlineSwitch(
-            value: widget.duoEnabled,
-            title: AppStrings.profileDuoMode,
-            subtitle: widget.duoEnabled
-                ? AppStrings.profileDuoModeOn
-                : AppStrings.profileDuoModeOff,
-            onChanged: _changeDuoMode,
-          ),
         ],
       ),
     );
   }
+}
 
-  Widget _buildAccountCard(AppSettings? settings) {
+// ─── Settings Group ────────────────────────────────────────────────────────
+
+class _SettingsGroup extends StatelessWidget {
+  const _SettingsGroup({required this.items});
+  final List<_SettingsItem> items;
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      decoration: AppSurface.card(alpha: 0.98),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildInlineItem(
-            Icons.security_rounded,
-            AppStrings.profileAccountSecurity,
-            AppStrings.profileAccountSecuritySubtitle,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => AccountSecurityPage(owner: widget.owner),
-              ),
-            ),
-          ),
-          _buildDivider(),
-          _buildInlineSwitch(
-            value: settings?.notificationsEnabled ?? true,
-            title: AppStrings.profileNotification,
-            subtitle: AppStrings.profileNotificationSubtitle,
-            onChanged: _changeNotificationMode,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSupportCard() {
-    return Container(
-      decoration: AppSurface.card(alpha: 0.98),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildInlineItem(
-            Icons.feedback_rounded,
-            AppStrings.profileHelp,
-            AppStrings.profileHelpSubtitle,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => HelpFeedbackPage(owner: widget.owner),
-              ),
-            ),
-          ),
-          if (_showDebugHint && !_debugUnlocked) ...[
-            _buildDivider(),
-            _buildInlineHint(AppStrings.profileDebugHint),
-          ],
-          if (_debugUnlocked) ...[
-            _buildDivider(),
-            _buildInlineItem(
-              Icons.bug_report_outlined,
-              AppStrings.profileDebugTitle,
-              AppStrings.profileDebugSubtitle,
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const DebugPage()),
-                );
-              },
-            ),
-          ],
-          _buildDivider(),
-          _buildInlineItem(
-            Icons.privacy_tip_rounded,
-            AppStrings.profilePrivacy,
-            AppStrings.profilePrivacySubtitle,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => PrivacyDataPage(owner: widget.owner),
-              ),
-            ),
-          ),
-          _buildDivider(),
-          _buildInlineItem(
-            Icons.info_outline_rounded,
-            AppStrings.profileAbout,
-            AppStrings.profileAboutSubtitle,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const AboutPage()),
-            ),
-          ),
-          _buildDivider(),
-          _buildInlineItem(
-            Icons.logout_rounded,
-            AppStrings.profileLogout,
-            AppStrings.profileLogoutSubtitle,
-            onTap: () async {
-              final confirmed = await showModalBottomSheet<bool>(
-                context: context,
-                backgroundColor: AppTheme.panel,
-                shape: const RoundedRectangleBorder(
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-                ),
-                builder: (context) => Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-                  child: SafeArea(
-                    top: false,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          AppStrings.profileLogoutTitle,
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-                        ),
-                        const SizedBox(height: 4),
-                        const Text(
-                          AppStrings.profileLogoutHint,
-                          style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
-                        ),
-                        const SizedBox(height: 14),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: OutlinedButton(
-                                onPressed: () => Navigator.pop(context, false),
-                                child: const Text(AppStrings.profileLogoutCancel),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: FilledButton(
-                                onPressed: () => Navigator.pop(context, true),
-                                child: const Text(AppStrings.profileLogoutConfirm),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              );
-              if (confirmed == true) {
-                await widget.onLogout();
-              }
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInlineItem(
-    IconData icon,
-    String title,
-    String subtitle, {
-    VoidCallback? onTap,
-  }) {
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-      leading: Container(
-        width: 38,
-        height: 38,
-        decoration: BoxDecoration(
-          color: AppTheme.softBlue,
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Icon(icon, color: AppTheme.primary),
-      ),
-      title: Text(title, style: AppText.cardTitle),
-      subtitle: Text(subtitle, style: AppText.bodyMuted),
-      trailing: const Icon(Icons.chevron_right_rounded),
-      onTap: onTap,
-    );
-  }
-
-  Widget _buildInlineSwitch({
-    required bool value,
-    required String title,
-    required String subtitle,
-    required ValueChanged<bool> onChanged,
-  }) {
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-      leading: Container(
-        width: 38,
-        height: 38,
-        decoration: BoxDecoration(
-          color: AppTheme.softBlue,
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Icon(
-          value ? Icons.toggle_on_rounded : Icons.toggle_off_rounded,
-          color: AppTheme.primary,
-        ),
-      ),
-      title: Text(title, style: AppText.cardTitle),
-      subtitle: Text(subtitle, style: AppText.bodyMuted),
-      trailing: Switch(
-        value: value,
-        onChanged: onChanged,
-      ),
-    );
-  }
-
-  Widget _buildInlineHint(String text) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-      child: Text(text, style: AppText.bodyMuted),
-    );
-  }
-
-  Widget _buildDivider() {
-    return const Divider(height: 1, thickness: 1, color: AppTheme.border);
-  }
-
-  Widget _buildGuestLoginCard() {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: AppSurface.card(alpha: 0.98),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            AppStrings.profileGuestTitle,
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 6),
-          const Text(
-            AppStrings.profileGuestSubtitle,
-            style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              onPressed: widget.onExitGuest,
-              child: const Text(AppStrings.profileGuestAction),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildErrorPanel(String text) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: AppTheme.errorBg,
-        border: Border.all(color: AppTheme.errorBorder),
-        borderRadius: BorderRadius.circular(14),
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+        border: Border.all(color: AppTheme.border),
       ),
-      child: Row(
+      child: Column(
         children: [
-          const Icon(Icons.error_outline_rounded, size: 16, color: AppTheme.danger),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              AppStrings.profileErrorLoadingDetail(text),
-              style: const TextStyle(
-                color: AppTheme.danger,
-                fontWeight: FontWeight.w600,
-                fontSize: 12,
-              ),
-            ),
-          ),
+          for (int i = 0; i < items.length; i++) ...[
+            if (i > 0) const Divider(height: 1, indent: 52),
+            items[i],
+          ],
         ],
       ),
+    );
+  }
+}
+
+class _SettingsItem extends StatelessWidget {
+  const _SettingsItem({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    this.onTap,
+    this.trailing,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback? onTap;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          color: AppTheme.softBlue,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(icon, color: AppTheme.primary, size: 20),
+      ),
+      title: Text(title, style: AppText.headline),
+      subtitle: Text(subtitle, style: AppText.footnote.copyWith(color: AppTheme.textMuted)),
+      trailing: trailing ?? const Icon(Icons.chevron_right_rounded, color: AppTheme.textMuted),
+      onTap: trailing != null ? null : onTap,
     );
   }
 }

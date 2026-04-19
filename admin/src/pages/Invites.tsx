@@ -6,10 +6,12 @@ import { StatusBadge } from '../components/StatusBadge';
 import { SimpleTable } from '../components/SimpleTable';
 import { createInvites, disableInvite, fetchInvites, InviteCode } from '../services/admin';
 import { t } from '../i18n';
+import { formatAbsoluteChinaTime, formatAdminTime, onTimeFormatChange, toggleTimeFormatMode } from '../utils/timeFormat';
 
 export function Invites() {
   const [data, setData] = useState<InviteCode[]>([]);
   const [loading, setLoading] = useState(false);
+  const [, setTick] = useState(0);
   const [open, setOpen] = useState(false);
   const [count, setCount] = useState(5);
   const [usageLimit, setUsageLimit] = useState(1);
@@ -29,6 +31,8 @@ export function Invites() {
   useEffect(() => {
     void load();
   }, []);
+
+  useEffect(() => onTimeFormatChange(() => setTick((value) => value + 1)), []);
 
   const handleCreate = async () => {
     if (count <= 0 || usageLimit <= 0) {
@@ -71,8 +75,44 @@ export function Invites() {
             { title: t('invites.columns.code'), dataIndex: 'code' },
             { title: t('invites.columns.status'), dataIndex: 'status', render: (value) => <StatusBadge value={String(value)} /> },
             { title: t('invites.columns.usage'), render: (_, row) => `${row.used_count}/${row.usage_limit}` },
-            { title: t('invites.columns.created'), dataIndex: 'created_at' },
-            { title: t('invites.columns.used'), dataIndex: 'used_at', render: (value) => value || t('common.dash') },
+            {
+              title: t('invites.columns.created'),
+              dataIndex: 'created_at',
+              render: (value) => {
+                const display = formatAdminTime(value);
+                const absolute = formatAbsoluteChinaTime(value);
+                return (
+                  <button
+                    type="button"
+                    className="time-cell"
+                    onClick={toggleTimeFormatMode}
+                    title={absolute ? `${absolute} · ${t('topbar.timeToggleHint')}` : t('topbar.timeToggleHint')}
+                  >
+                    <span className="time-cell-icon">⟳</span>
+                    {display || t('common.dash')}
+                  </button>
+                );
+              }
+            },
+            {
+              title: t('invites.columns.used'),
+              dataIndex: 'used_at',
+              render: (value) => {
+                const display = formatAdminTime(value);
+                const absolute = formatAbsoluteChinaTime(value);
+                return (
+                  <button
+                    type="button"
+                    className="time-cell"
+                    onClick={toggleTimeFormatMode}
+                    title={absolute ? `${absolute} · ${t('topbar.timeToggleHint')}` : t('topbar.timeToggleHint')}
+                  >
+                    <span className="time-cell-icon">⟳</span>
+                    {display || t('common.dash')}
+                  </button>
+                );
+              }
+            },
             {
               title: t('invites.columns.action'),
               render: (_, row) => (

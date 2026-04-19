@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../models/owned_item.dart';
 import '../services/store_api_service.dart';
 import '../ui/app_space.dart';
 import '../ui/app_surface.dart';
@@ -88,7 +89,7 @@ class _StoreOwnedRecordsPageState extends State<StoreOwnedRecordsPage> {
     return Container(
       margin: const EdgeInsets.only(bottom: AppSpace.sm),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: AppSurface.subtleCard(shadow: true),
+      decoration: AppSurface.subtleCard(),
       child: Row(
         children: [
           const Icon(Icons.history_rounded, color: AppTheme.primary, size: 18),

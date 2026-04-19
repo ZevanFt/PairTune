@@ -5,10 +5,12 @@ import { SectionHeader } from '../components/SectionHeader';
 import { SimpleTable } from '../components/SimpleTable';
 import { AdminUser, fetchUsers } from '../services/admin';
 import { t } from '../i18n';
+import { formatAbsoluteChinaTime, formatAdminTime, onTimeFormatChange, toggleTimeFormatMode } from '../utils/timeFormat';
 
 export function Users() {
   const [data, setData] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(false);
+  const [, setTick] = useState(0);
 
   const load = async () => {
     setLoading(true);
@@ -25,6 +27,8 @@ export function Users() {
   useEffect(() => {
     void load();
   }, []);
+
+  useEffect(() => onTimeFormatChange(() => setTick((value) => value + 1)), []);
 
   return (
     <div className="space-y-6">
@@ -50,7 +54,25 @@ export function Users() {
               )
             },
             { title: t('users.status'), dataIndex: 'status' },
-            { title: t('users.created'), dataIndex: 'created_at' }
+            {
+              title: t('users.created'),
+              dataIndex: 'created_at',
+              render: (value) => {
+                const display = formatAdminTime(value);
+                const absolute = formatAbsoluteChinaTime(value);
+                return (
+                  <button
+                    type="button"
+                    className="time-cell"
+                    onClick={toggleTimeFormatMode}
+                    title={absolute ? `${absolute} · ${t('topbar.timeToggleHint')}` : t('topbar.timeToggleHint')}
+                  >
+                    <span className="time-cell-icon">⟳</span>
+                    {display || t('common.dash')}
+                  </button>
+                );
+              }
+            }
           ]}
         />
       </Card>

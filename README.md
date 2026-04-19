@@ -300,12 +300,10 @@ npm run migrate -- --down 3
 ```
 
 ## 管理员初始化（推荐）
-使用脚本交互输入管理员账号和密码：
-```bash
-cd /home/talent/projects/priority_first
-./backend/scripts/deploy.sh
-```
-脚本会写入 `backend/.env.local`，并在后端启动时自动创建/更新管理员账号。
+仅前端初始化（首次访问管理后台会提示）：
+- 打开管理后台页面
+- 填写管理员账号与密码
+- 前端调用后端接口完成初始化
 
 ## 认证与邀请码
 - 登录：账号 + 密码
@@ -328,6 +326,7 @@ SQLite 文件：`backend/data/priority_first.db`
 - `docs/AUTH_ROADMAP.md`
 - `docs/PRODUCT_POSITIONING.md`
 - `docs/UI_CURRENT_STATE_AND_NEXT.md`
+- `docs/DEPLOYMENT_GUIDE.md`
 
 ## 测试
 后端集成测试默认不在沙盒环境跑（网络监听被限制）。  

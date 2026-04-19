@@ -95,7 +95,7 @@ class AboutPage extends StatelessWidget {
           Text(title, style: AppText.sectionTitle),
           if (description != null) ...[
             AppSpace.h8,
-            Text(description, style: AppText.bodyMuted),
+            Text(description, style: AppText.bodyMuted()),
           ],
           AppSpace.h10,
           ...items,
@@ -121,7 +121,7 @@ class _InfoRow extends StatelessWidget {
             width: 90,
             child: Text(
               label,
-              style: AppText.bodyMuted.copyWith(fontWeight: FontWeight.w600),
+              style: AppText.bodyMuted().copyWith(fontWeight: FontWeight.w600),
             ),
           ),
           Expanded(child: Text(value, style: AppText.sectionSubtitle.copyWith(color: AppTheme.ink))),

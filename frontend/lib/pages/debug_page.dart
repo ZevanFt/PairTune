@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../config/api_config.dart';
+import '../models/backend_health.dart';
 import '../services/api_logger.dart';
 import '../services/health_api_service.dart';
 import '../ui/app_theme.dart';

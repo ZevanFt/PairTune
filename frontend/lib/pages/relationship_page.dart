@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../config/profile_config.dart';
 import '../i18n/app_strings.dart';
+import '../models/user_profile.dart';
 import '../services/account_api_service.dart';
 import '../ui/app_space.dart';
 import '../ui/app_surface.dart';
@@ -10,9 +11,9 @@ import '../ui/app_theme.dart';
 import '../utils/error_display.dart';
 
 class RelationshipPage extends StatefulWidget {
-  const RelationshipPage({super.key, required this.profile});
+  const RelationshipPage({super.key, required this.owner});
 
-  final UserProfile profile;
+  final String owner;
 
   @override
   State<RelationshipPage> createState() => _RelationshipPageState();
@@ -31,16 +32,38 @@ class _RelationshipPageState extends State<RelationshipPage> {
   bool _saving = false;
   bool _loading = true;
   String? _error;
+  UserProfile? _profile;
 
   @override
   void initState() {
     super.initState();
-    _label = widget.profile.relationshipLabel;
-    _useCustomLabel = !AppStrings.relationshipPresets.contains(_label);
-    if (_useCustomLabel) {
-      _customLabelController.text = _label;
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    try {
+      final profile = await _api.getProfile(widget.owner);
+      final settings = await _api.getSettings(widget.owner);
+      if (!mounted) return;
+      setState(() {
+        _profile = profile;
+        _label = profile.relationshipLabel;
+        _useCustomLabel = !AppStrings.relationshipPresets.contains(_label);
+        if (_useCustomLabel) {
+          _customLabelController.text = _label;
+        }
+        _checkin = settings.relationCheckin;
+        _reminder = settings.relationReminder;
+        _coopHint = settings.relationCoopHint;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = formatErrorMessage(e);
+        _loading = false;
+      });
     }
-    _loadSettings();
   }
 
   @override
@@ -49,41 +72,22 @@ class _RelationshipPageState extends State<RelationshipPage> {
     super.dispose();
   }
 
-  Future<void> _loadSettings() async {
-    try {
-      final settings = await _api.getSettings(widget.profile.owner);
-      if (!mounted) return;
-      setState(() {
-        _checkin = settings.relationCheckin;
-        _reminder = settings.relationReminder;
-        _coopHint = settings.relationCoopHint;
-        _loading = false;
-        _error = null;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _error = formatErrorMessage(e);
-      });
-    }
-  }
-
   Future<void> _save() async {
     if (_saving) return;
     if (!_formKey.currentState!.validate()) return;
+    if (_profile == null) return;
     final label = _useCustomLabel ? _customLabelController.text.trim() : _label;
     setState(() => _saving = true);
     try {
       final updatedProfile = await _api.updateProfile(
-        owner: widget.profile.owner,
-        displayName: widget.profile.displayName,
-        bio: widget.profile.bio,
-        avatar: widget.profile.avatar,
+        owner: widget.owner,
+        displayName: _profile!.displayName,
+        bio: _profile!.bio,
+        avatar: _profile!.avatar,
         relationshipLabel: label,
       );
       await _api.updateSettings(
-        owner: widget.profile.owner,
+        owner: widget.owner,
         relationCheckin: _checkin,
         relationReminder: _reminder,
         relationCoopHint: _coopHint,
@@ -133,6 +137,18 @@ class _RelationshipPageState extends State<RelationshipPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (_loading) {
+      return Scaffold(
+        appBar: AppBar(title: const Text(AppStrings.relationshipTitle)),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (_error != null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text(AppStrings.relationshipTitle)),
+        body: Center(child: Text(_error!)),
+      );
+    }
     return Scaffold(
       appBar: AppBar(title: const Text(AppStrings.relationshipTitle)),
       floatingActionButton: FloatingActionButton.extended(
@@ -165,7 +181,7 @@ class _RelationshipPageState extends State<RelationshipPage> {
                   padding: const EdgeInsets.only(bottom: 12),
                   child: Text(
                     _error!,
-                    style: AppText.bodyMuted.copyWith(color: AppTheme.danger),
+                    style: AppText.bodyMuted().copyWith(color: AppTheme.danger),
                   ),
                 ),
               _buildSectionTitle(
@@ -285,7 +301,7 @@ class _RelationshipPageState extends State<RelationshipPage> {
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
       title: Text(title, style: AppText.cardTitle),
-      subtitle: Text(subtitle, style: AppText.bodyMuted),
+      subtitle: Text(subtitle, style: AppText.bodyMuted()),
       trailing: Switch(value: value, onChanged: onChanged),
     );
   }

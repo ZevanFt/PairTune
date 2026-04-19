@@ -6,6 +6,7 @@ import { StatCard } from '../components/StatCard';
 import { SimpleTable } from '../components/SimpleTable';
 import { fetchSecurityEvents, SecurityStats } from '../services/admin';
 import { t } from '../i18n';
+import { formatAbsoluteChinaTime, formatAdminTime, onTimeFormatChange, toggleTimeFormatMode } from '../utils/timeFormat';
 
 const rangeOptions = [
   { label: t('dashboard.range7'), value: '7d' },
@@ -19,6 +20,7 @@ export function Security() {
   const [range, setRange] = useState('30d');
   const [stats, setStats] = useState<SecurityStats | null>(null);
   const [loading, setLoading] = useState(false);
+  const [, setTick] = useState(0);
 
   const load = async (nextRange: string) => {
     setLoading(true);
@@ -35,6 +37,8 @@ export function Security() {
   useEffect(() => {
     void load(range);
   }, [range]);
+
+  useEffect(() => onTimeFormatChange(() => setTick((value) => value + 1)), []);
 
   return (
     <div className="space-y-6">
@@ -80,7 +84,25 @@ export function Security() {
               render: (_, row) => (row.success ? t('security.successYes') : t('security.successNo'))
             },
             { title: t('security.detail'), dataIndex: 'detail', render: (value) => value || t('common.dash') },
-            { title: t('security.time'), dataIndex: 'created_at' }
+            {
+              title: t('security.time'),
+              dataIndex: 'created_at',
+              render: (value) => {
+                const display = formatAdminTime(value);
+                const absolute = formatAbsoluteChinaTime(value);
+                return (
+                  <button
+                    type="button"
+                    className="time-cell"
+                    onClick={toggleTimeFormatMode}
+                    title={absolute ? `${absolute} · ${t('topbar.timeToggleHint')}` : t('topbar.timeToggleHint')}
+                  >
+                    <span className="time-cell-icon">⟳</span>
+                    {display || t('common.dash')}
+                  </button>
+                );
+              }
+            }
           ]}
         />
       </Card>
