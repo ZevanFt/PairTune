@@ -1,22 +1,23 @@
 import 'package:flutter/material.dart';
-
 import '../ui/app_theme.dart';
+import '../ui/app_text.dart';
+import '../ui/app_space.dart';
 
 /// ─────────────────────────────────────────────────────────────────────────────
-/// PairTune 统一组件库
+/// PairTune 统一组件库 - Linear风格
 /// ─────────────────────────────────────────────────────────────────────────────
 ///
 /// 使用原则：
-/// 1. 所有页面必须使用此组件库，禁止内联创建相同UI
-/// 2. 组件自动应用设计系统规范
-/// 3. 通过参数控制变体，不创建新组件
+/// 1. 所有页面必须使用此组件库
+/// 2. 禁止内联创建相同UI
+/// 3. 通过参数控制变体
 /// ─────────────────────────────────────────────────────────────────────────────
 
 // ══════════════════════════════════════════════════════════════════════════════
 // 页面框架
 // ══════════════════════════════════════════════════════════════════════════════
 
-/// 统一页面脚手架
+/// 统一页面
 class AppPage extends StatelessWidget {
   const AppPage({
     super.key,
@@ -56,7 +57,7 @@ class AppPage extends StatelessWidget {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// 卡片组件
+// 卡片
 // ══════════════════════════════════════════════════════════════════════════════
 
 /// 统一卡片
@@ -101,7 +102,7 @@ class AppCard extends StatelessWidget {
   }
 }
 
-/// 统一列表卡片
+/// 列表卡片
 class AppListCard extends StatelessWidget {
   const AppListCard({
     super.key,
@@ -149,7 +150,7 @@ class AppListCard extends StatelessWidget {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// 按钮组件
+// 按钮
 // ══════════════════════════════════════════════════════════════════════════════
 
 /// 主要按钮
@@ -205,7 +206,7 @@ class AppSecondaryButton extends StatelessWidget {
       onPressed: onPressed,
       style: OutlinedButton.styleFrom(
         foregroundColor: AppTheme.ink,
-        side: BorderSide(color: AppTheme.border),
+        side: const BorderSide(color: AppTheme.border),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusSm)),
         padding: const EdgeInsets.symmetric(horizontal: AppSpace.lg, vertical: AppSpace.md),
       ),
@@ -242,7 +243,7 @@ class AppTextButton extends StatelessWidget {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// 标签组件
+// 标签
 // ══════════════════════════════════════════════════════════════════════════════
 
 /// 统一标签
@@ -273,25 +274,8 @@ class AppTag extends StatelessWidget {
   }
 }
 
-/// 四象限标签
-class AppQuadrantTag extends StatelessWidget {
-  const AppQuadrantTag({super.key, required this.quadrant});
-
-  final TaskQuadrant quadrant;
-
-  Color get _color => switch (quadrant) {
-    TaskQuadrant.importantUrgent => AppTheme.urgentImportant,
-    TaskQuadrant.importantNotUrgent => AppTheme.importantNotUrgent,
-    TaskQuadrant.notImportantUrgent => AppTheme.urgentNotImportant,
-    TaskQuadrant.notImportantNotUrgent => AppTheme.notUrgentNotImportant,
-  };
-
-  @override
-  Widget build(BuildContext context) => AppTag(label: quadrant.label, color: _color);
-}
-
 // ══════════════════════════════════════════════════════════════════════════════
-// 分隔组件
+// 分隔
 // ══════════════════════════════════════════════════════════════════════════════
 
 /// 区块标题
@@ -348,7 +332,7 @@ class AppDivider extends StatelessWidget {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// 状态组件
+// 状态
 // ══════════════════════════════════════════════════════════════════════════════
 
 /// 空状态
@@ -431,7 +415,7 @@ class AppErrorState extends StatelessWidget {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// 输入组件
+// 输入
 // ══════════════════════════════════════════════════════════════════════════════
 
 /// 统一输入框
@@ -481,31 +465,72 @@ class AppTextField extends StatelessWidget {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// 辅助类型（需要从其他文件导入）
+// 数字显示
 // ══════════════════════════════════════════════════════════════════════════════
 
-// 这些类型应该从对应的文件导入，这里仅作占位
-class TaskQuadrant {
+/// 大数字显示
+class AppBigNumber extends StatelessWidget {
+  const AppBigNumber({
+    super.key,
+    required this.value,
+    required this.label,
+    this.color,
+  });
+
+  final int value;
   final String label;
-  const TaskQuadrant(this.label);
-  static const importantUrgent = TaskQuadrant('紧急重要');
-  static const importantNotUrgent = TaskQuadrant('重要不紧急');
-  static const notImportantUrgent = TaskQuadrant('紧急不重要');
-  static const notImportantNotUrgent = TaskQuadrant('不紧急不重要');
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = color ?? AppTheme.primary;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '$value',
+          style: TextStyle(
+            color: c,
+            fontSize: 32,
+            fontWeight: FontWeight.w600,
+            height: 1,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(label, style: AppText.caption),
+      ],
+    );
+  }
 }
 
-class AppSpace {
-  static const xs = 4.0;
-  static const sm = 8.0;
-  static const md = 12.0;
-  static const lg = 16.0;
-  static const xl = 20.0;
-}
+/// 徽章数字
+class AppBadge extends StatelessWidget {
+  const AppBadge({
+    super.key,
+    required this.value,
+    this.color,
+  });
 
-class AppText {
-  static const body = TextStyle(fontSize: 14, fontWeight: FontWeight.w400, color: AppTheme.ink);
-  static const caption = TextStyle(fontSize: 12, fontWeight: FontWeight.w400, color: AppTheme.inkSecondary);
-  static const sectionTitle = TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.inkTertiary, letterSpacing: 0.5);
-  static const sectionSubtitle = TextStyle(fontSize: 11, fontWeight: FontWeight.w400, color: AppTheme.inkMuted, letterSpacing: 0.2);
-  static TextStyle bodyMuted() => const TextStyle(fontSize: 14, fontWeight: FontWeight.w400, color: AppTheme.inkTertiary);
+  final int value;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = color ?? AppTheme.primary;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpace.sm, vertical: AppSpace.xs),
+      decoration: BoxDecoration(
+        color: value > 0 ? c.withValues(alpha: 0.1) : AppTheme.surfaceMuted,
+        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+      ),
+      child: Text(
+        '$value',
+        style: TextStyle(
+          color: value > 0 ? c : AppTheme.inkMuted,
+          fontWeight: FontWeight.w600,
+          fontSize: 12,
+        ),
+      ),
+    );
+  }
 }
